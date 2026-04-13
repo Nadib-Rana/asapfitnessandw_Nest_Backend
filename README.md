@@ -97,28 +97,26 @@ Table programs {
 Table classes {
   id uuid [pk]
   program_id uuid [ref: > programs.id]
-  class_order integer // Used for sequential unlocking logic
+  class_order integer // For linear unlocking
   difficulty_id uuid [ref: > difficulties.id]
   title varchar
   video_url varchar
   subtitle varchar
   thumb_image varchar
   instructor_name varchar
-  scheduled_at timestamp
   achievements varchar[] 
   equipment varchar[]
   duration varchar
 }
 
-// Enrollment tracks the 1-month access and video progress
 Table enrollments {
   id uuid [pk]
   user_id uuid [ref: > users.id]
   program_id uuid [ref: > programs.id]
   status varchar // ACTIVE, EXPIRED, CANCELLED
-  progress_percent integer [default: 0] // Track individual student video progress
+  progress_percent integer [default: 0]
   enrolled_at timestamp [default: `now()`]
-  expires_at timestamp // Logic: enrolled_at + 30 days
+  expires_at timestamp // Set to 30 days from enrollment
 }
 
 // --- E-COMMERCE (SHOP) MODULE ---
@@ -146,15 +144,17 @@ Table add_to_cart {
   quantity integer
 }
 
-// --- ORDER & CASH ON DELIVERY (COD) MODULE ---
+// --- ORDER & HYBRID PAYMENT MODULE ---
 Table orders {
   id uuid [pk]
   user_id uuid [ref: > users.id]
   total_amount decimal
   shipping_address text
-  phone_number varchar // Vital for COD verification
+  phone_number varchar 
+  payment_method varchar // "COD" or "ONLINE"
+  transaction_id varchar // For Online Pay tracking
   order_status varchar // PLACED, SHIPPED, DELIVERED, RETURNED
-  payment_status varchar [default: "UNPAID"] // Becomes PAID on cash collection
+  payment_status varchar [default: "PENDING"] // PENDING, PAID, FAILED
   created_at timestamp [default: `now()`]
 }
 
