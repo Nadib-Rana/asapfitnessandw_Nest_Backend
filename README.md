@@ -24,7 +24,7 @@ The platform's visual identity is built on a **Glassmorphism** aesthetic—utili
 ---
 
 ## 2. Order & Payment Workflow (COD)
-Because the project operates on a **Cash on Delivery (COD)** model, the workflow is built for manual fulfillment:
+Because the project operates on a **COD** or **online** payment(stripe) model, the workflow is built for manual fulfillment:
 * **Mobile Verification:** Orders require a verified phone number to minimize "ghost" or fake orders.
 * **Status Lifecycle:** Orders are initially placed as `UNPAID` with a `PLACED` status.
 * **Fulfillment:** Once the delivery agent collects the physical cash, the administrator updates the order to `PAID` and `DELIVERED`, completing the transaction.
@@ -42,8 +42,8 @@ Because the project operates on a **Cash on Delivery (COD)** model, the workflow
 2.  **Enrollment:** User chooses a program, granting them a **30-day active window**.
 3.  **Training:** User completes video classes one by one, unlocking the next only after 100% completion.
 4.  **Reward:** User earns XP and levels up their profile.
-5.  **Shopping:** User orders supplements via **COD** to support their physical training.
-6.  **Payment for Shopping**Online(stripe) and cash on delivery with delivery charge. 
+5.  **Shopping:** User orders supplements via **COD** or online payment to support their physical training.
+   
 
 
 
