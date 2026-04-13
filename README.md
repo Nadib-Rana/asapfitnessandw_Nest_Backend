@@ -44,6 +44,7 @@ Because the project operates on a **Cash on Delivery (COD)** model, the workflow
 3.  **Training:** User completes video classes one by one, unlocking the next only after 100% completion.
 4.  **Reward:** User earns XP and levels up their profile.
 5.  **Shopping:** User orders supplements via **COD** to support their physical training.
+6.  **Payment for Shopping**Online(stripe) and cash on delivery with delivery charge. 
 
 
 
