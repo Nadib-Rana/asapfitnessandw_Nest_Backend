@@ -32,7 +32,6 @@ Because the project operates on a **Cash on Delivery (COD)** model, the workflow
 ---
 
 ## 3. Technical Architecture
-* **Frontend:** Designed for a reactive experience (Next.js) with a heavy focus on Tailwind CSS for the Glassmorphism effects.
 * **Backend:** A robust **Nest.js** environment using **Prisma ORM** to manage the complex relational database.
 * **Database (PostgreSQL):** A structured schema that links Users to Enrollments, Programs to Classes, and Products to Orders.
 
