@@ -48,3 +48,148 @@ Because the project operates on a **Cash on Delivery (COD)** model, the workflow
 
 
 This platform is more than just a workout app; it is a complete digital coach and retail partner that strictly rewards consistency and provides the physical tools for success.
+
+
+
+
+Database :
+
+```dbml
+// --- AUTH & USER MODULE ---
+Table users {
+  id uuid [pk]
+  full_name varchar
+  email varchar [unique]
+  gender varchar 
+  birth_date date 
+  password_hash varchar
+  avatar_url varchar
+  current_xp integer [default: 0]
+  level integer [default: 1]
+  is_verified boolean [default: false]
+  created_at timestamp [default: `now()`]
+}
+
+Table otp_verifications {
+  id uuid [pk]
+  user_id uuid [ref: > users.id]
+  code varchar
+  expires_at timestamp
+}
+
+// --- FITNESS & DIFFICULTY MODULE ---
+Table difficulties {
+  id uuid [pk]
+  level_name varchar // Beginner, Intermediate, Advanced
+  description varchar 
+  xp_multiplier float [default: 1.0]
+}
+
+Table programs {
+  id uuid [pk]
+  difficulty_id uuid [ref: > difficulties.id]
+  title varchar
+  description text
+  thumbnail_url varchar
+  created_at timestamp [default: `now()`]
+}
+
+Table classes {
+  id uuid [pk]
+  program_id uuid [ref: > programs.id]
+  class_order integer // Used for sequential unlocking logic
+  difficulty_id uuid [ref: > difficulties.id]
+  title varchar
+  video_url varchar
+  subtitle varchar
+  thumb_image varchar
+  instructor_name varchar
+  scheduled_at timestamp
+  achievements varchar[] 
+  equipment varchar[]
+  duration varchar
+}
+
+// Enrollment tracks the 1-month access and video progress
+Table enrollments {
+  id uuid [pk]
+  user_id uuid [ref: > users.id]
+  program_id uuid [ref: > programs.id]
+  status varchar // ACTIVE, EXPIRED, CANCELLED
+  progress_percent integer [default: 0] // Track individual student video progress
+  enrolled_at timestamp [default: `now()`]
+  expires_at timestamp // Logic: enrolled_at + 30 days
+}
+
+// --- E-COMMERCE (SHOP) MODULE ---
+Table categories {
+  id uuid [pk]
+  name varchar
+}
+
+Table products {
+  id uuid [pk]
+  category_id uuid [ref: > categories.id]
+  title varchar
+  sub_title varchar
+  description text
+  regular_price decimal
+  discount_price decimal
+  stock_quantity integer
+  image_url varchar
+}
+
+Table add_to_cart {
+  id uuid [pk]
+  user_id uuid [ref: > users.id]
+  product_id uuid [ref: > products.id]
+  quantity integer
+}
+
+// --- ORDER & CASH ON DELIVERY (COD) MODULE ---
+Table orders {
+  id uuid [pk]
+  user_id uuid [ref: > users.id]
+  total_amount decimal
+  shipping_address text
+  phone_number varchar // Vital for COD verification
+  order_status varchar // PLACED, SHIPPED, DELIVERED, RETURNED
+  payment_status varchar [default: "UNPAID"] // Becomes PAID on cash collection
+  created_at timestamp [default: `now()`]
+}
+
+Table order_items {
+  id uuid [pk]
+  order_id uuid [ref: > orders.id]
+  product_id uuid [ref: > products.id]
+  quantity integer
+  price_at_purchase decimal
+}
+
+// --- SUPPORT ---
+Table faqs {
+  id uuid [pk]
+  question text
+  answer text
+  sort_order integer
+}
+```
+
+---
+
+### **Implementation Logic for Developers:**
+
+1.  **Sequential Unlock Logic:** * To check if a user can play a video:
+    * `IF (class_order == 1 AND enrollment.status == 'ACTIVE')` -> **Unlock**.
+    * `IF (previous_class.status == 'COMPLETED' AND enrollment.status == 'ACTIVE')` -> **Unlock**.
+
+2.  **1-Month Expiry Logic:**
+    * When fetching a program, the backend should compare `expires_at` with the current system time. 
+    * If `now() > expires_at`, set `enrollment.status = 'EXPIRED'` and blur the video player in the UI.
+
+3.  **XP Reward Logic:**
+    * On `progress_percent == 100`, trigger a function: 
+    * `User.current_xp += (Base_XP * Difficulty.xp_multiplier)`.
+
+4.  **COD Workflow:**
+    * Since this is a "Cash One and Only Pay" system, the `orders.payment_status` stays `UNPAID` until your delivery script or admin manually confirms the physical cash receipt.
