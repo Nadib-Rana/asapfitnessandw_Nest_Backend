@@ -1,0 +1,57 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres_teams11_container
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: nest_js
+      POSTGRES_PASSWORD: nest_js
+      POSTGRES_DB: nest_js
+    ports:
+      - "6096:5432" # Local access (optional)
+    volumes:
+      - nest_postgres:/var/lib/postgresql/data
+    networks:
+      - nest_network
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio_teams11_container
+    restart: unless-stopped
+    ports:
+      - "9010:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - nest_minio:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - nest_network
+
+  redis:
+    image: redis:latest
+    container_name: nest_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - nest_redis:/data
+    command: redis-server --save 60 1 --loglevel warning
+    networks:
+      - nest_network
+
+networks:
+  nest_network:
+    driver: bridge
+
+volumes:
+  nest_postgres:
+    driver: local
+  nest_minio:
+    driver: local
+  nest_redis:
+    driver: local

@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- Enums ---
+enum UserRole {
+  customer
+  vendor
+  staff
+}
+
+enum TokenType {
+  email_verification
+  password_reset
+  login_otp
+}
+
+// --- Models ---
+
+model User {
+  id            String    @id @default(uuid()) @db.Uuid
+  fullName      String?   @map("full_name")
+  email         String    @unique
+  password      String
+  role          UserRole  @default(customer)
+  profileImage  String?   @map("profile_image")
+  isVerified    Boolean   @default(false) @map("is_verified")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  // Website-er jonno lagbe
+  verificationTokens   VerificationToken[]
+  notificationSettings NotificationSetting?
+
+  @@map("users")
+}
+
+model VerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  type      TokenType
+  expiresAt DateTime
+  used      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@map("verification_tokens")
+}
+
+model NotificationSetting {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @unique @map("user_id") @db.Uuid
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailNotification Boolean @default(true) @map("email_notifications")
+  // Website e push bolte browser push bujhay
+  pushNotification  Boolean @default(true) @map("push_notifications")
+
+  @@map("notification_settings")
+}

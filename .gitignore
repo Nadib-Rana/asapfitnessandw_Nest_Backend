@@ -1,0 +1,82 @@
+# dependencies (bun install)
+node_modules
+
+
+*.deb
+*.zip
+
+# output
+out
+dist
+*.tgz
+
+# code coverage
+coverage
+*.lcov
+.bun.lock
+
+# logs
+logs
+_.log
+report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
+
+# dotenv environment variable files
+# .env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
+.env.production
+.env.development
+
+firebase-credentials.json
+.env
+
+# caches
+.eslintcache
+.cache
+*.tsbuildinfo
+
+# IntelliJ based IDEs
+.idea
+
+# Finder (MacOS) folder config
+.DS_Store
+
+# dev database files
+# IDEs and editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+generated/*
+
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+
+.temp
+.tmp
+
+# OS
+.DS_Store
+
+# Tests
+/coverage
+/.nyc_output
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Diagnostic reports (https://nodejs.org/api/report.html)
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
