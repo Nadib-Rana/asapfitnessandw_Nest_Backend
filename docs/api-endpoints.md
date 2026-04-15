@@ -36,6 +36,7 @@ This index is generated from current controller routes in `src/**/*controller.ts
 - `GET /orders/my`
 - `PATCH /orders/:orderId/cod-confirm`
 - `POST /storage/public/presign-upload`
+- `POST /storage/public/upload-file`
 - `POST /storage/presign-upload`
 - `POST /storage/presign-download`
 - `GET /storage/object-url`
@@ -451,12 +452,70 @@ Mark COD order as paid and confirm it.
 
 Most storage routes require authentication.
 
+### POST `/storage/public/upload-file`
+
+Upload a file directly to the backend using `multipart/form-data`; backend stores it in MinIO and returns the generated object key.
+
+- Auth: No
+- Content-Type: `multipart/form-data`
+- Form-data fields:
+  - binary file: required (backend accepts any file field name and uses the first uploaded file; recommended key is `file`)
+  - `key`: string (optional)
+  - `filename`: string (optional; used to generate key when `key` is omitted)
+  - `mimeType`: string (optional; used to generate key when `key` is omitted)
+  - `bucket`: string (optional; defaults to `STORAGE_PUBLIC_UPLOAD_BUCKET`, default `profiles`)
+
+Example multipart payload:
+
+- file: `avatar.jpg`
+- filename: `avatar.jpg`
+- mimeType: `image/jpeg`
+
+Response fields:
+
+- `key` / `objectKey`: stored MinIO object key
+- `url`: object URL for immediate use
+- `temporary`: `true`
+
+Suggested persistence pattern:
+
+- Store only `objectKey` in database (for example `avatarKey`)
+- On read APIs, return actual URL from stored key via storage URL mapping/interceptor
+
+Example success `data` payload:
+
+```json
+{
+  "key": "temp/registrations/1713231234-abc123-avatar.jpg",
+  "objectKey": "temp/registrations/1713231234-abc123-avatar.jpg",
+  "bucket": "profiles",
+  "filename": "avatar.jpg",
+  "mimeType": "image/jpeg",
+  "size": 12345,
+  "temporary": true,
+  "url": "https://storage.example.com/profiles/temp/registrations/1713231234-abc123-avatar.jpg"
+}
+```
+
 ### POST `/storage/public/presign-upload`
 
 Create a temporary public presigned upload URL for pre-registration files (for example, user avatar before login).
 
+You can now send only `filename` + `mimeType`; the server will generate a safe object key automatically.
+
 - Auth: No
 - Body:
+
+```json
+{
+  "filename": "avatar.jpg",
+  "mimeType": "image/jpeg",
+  "bucket": "profiles",
+  "expirySeconds": 600
+}
+```
+
+Or provide explicit key:
 
 ```json
 {
@@ -467,9 +526,13 @@ Create a temporary public presigned upload URL for pre-registration files (for e
 ```
 
 - Validation:
-  - `key`: string (required)
-  - `key` must start with `STORAGE_PUBLIC_UPLOAD_PREFIX` (default: `temp/registrations/`)
+  - Provide either:
+    - `key`, or
+    - `filename` + `mimeType`
+  - `key` must start with `STORAGE_PUBLIC_UPLOAD_PREFIX` (default: `temp/registrations/`) when provided
   - `key` must be a safe object key (no `..`, no `//`, no absolute URL)
+  - `filename`: string (used for generated key slug + extension)
+  - `mimeType`: valid mime type (used for extension fallback)
   - `bucket`: string (optional; defaults to `STORAGE_PUBLIC_UPLOAD_BUCKET`, default `profiles`)
   - `expirySeconds`: integer 60..600 (optional, default 600)
 

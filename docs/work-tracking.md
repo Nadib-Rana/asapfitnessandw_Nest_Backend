@@ -66,6 +66,17 @@
   - Enforced key prefix and key safety checks
   - Added env-driven controls: `STORAGE_PUBLIC_UPLOAD_PREFIX`, `STORAGE_PUBLIC_UPLOAD_BUCKET`
   - Synced API docs and Postman variables for this route
+- Added automatic key generation for pre-registration uploads:
+  - `POST /storage/public/presign-upload` now supports `filename` + `mimeType`
+  - Server generates safe key with prefix + timestamp + random suffix
+  - Backward compatible: explicit `key` input still supported
+- Added backend multipart file upload support for pre-registration:
+  - `POST /storage/public/upload-file` accepts `multipart/form-data`
+  - Backend stores file directly in MinIO and returns `key` / `objectKey`
+  - `multipart/form-data` flow is now documented and covered by controller tests
+- Stabilized multipart upload behavior for frontend integration:
+  - Endpoint now accepts any uploaded file field name and uses the first file
+  - Added and verified docs for the recommended pattern: store `objectKey` in DB, return actual URL on read
 
 ## In Progress
 

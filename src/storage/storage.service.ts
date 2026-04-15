@@ -92,6 +92,27 @@ export class StorageService {
     }
   }
 
+  async uploadObject(
+    buffer: Buffer,
+    bucket: string,
+    key: string,
+    contentType?: string,
+  ): Promise<void> {
+    if (!this.minioClient) {
+      throw new Error("Storage service is not configured");
+    }
+
+    const metaData = contentType ? { "Content-Type": contentType } : undefined;
+
+    await this.minioClient.putObject(
+      bucket,
+      key,
+      buffer,
+      buffer.length,
+      metaData,
+    );
+  }
+
   async removeObject(key: string, bucket: string): Promise<boolean> {
     if (!this.minioClient) {
       return false;

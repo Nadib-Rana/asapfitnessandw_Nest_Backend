@@ -1,8 +1,24 @@
-import { IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+import {
+  IsInt,
+  IsMimeType,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from "class-validator";
 
 export class PublicPresignedUploadDto {
+  @IsOptional()
   @IsString()
-  key!: string;
+  key?: string;
+
+  @IsOptional()
+  @IsString()
+  filename?: string;
+
+  @IsOptional()
+  @IsMimeType()
+  mimeType?: string;
 
   @IsOptional()
   @IsString()

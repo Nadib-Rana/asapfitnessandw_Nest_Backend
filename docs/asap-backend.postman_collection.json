@@ -600,6 +600,43 @@
       "name": "Storage",
       "item": [
         {
+          "name": "Public Multipart File Upload",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                },
+                {
+                  "key": "filename",
+                  "type": "text",
+                  "value": "avatar.jpg"
+                },
+                {
+                  "key": "mimeType",
+                  "type": "text",
+                  "value": "image/jpeg"
+                },
+                {
+                  "key": "bucket",
+                  "type": "text",
+                  "value": "profiles"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storage/public/upload-file",
+              "host": ["{{baseUrl}}"],
+              "path": ["storage", "public", "upload-file"]
+            }
+          }
+        },
+        {
           "name": "Public Temporary Upload URL (Pre-registration)",
           "request": {
             "method": "POST",
@@ -611,7 +648,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"key\": \"{{registrationUploadKey}}\",\n  \"bucket\": \"{{registrationUploadBucket}}\",\n  \"expirySeconds\": 600\n}"
+              "raw": "{\n  \"filename\": \"{{registrationUploadFilename}}\",\n  \"mimeType\": \"{{registrationUploadMimeType}}\",\n  \"bucket\": \"{{registrationUploadBucket}}\",\n  \"expirySeconds\": 600\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/storage/public/presign-upload",
@@ -791,6 +828,14 @@
     {
       "key": "registrationUploadKey",
       "value": "temp/registrations/avatar-123.jpg"
+    },
+    {
+      "key": "registrationUploadFilename",
+      "value": "avatar.jpg"
+    },
+    {
+      "key": "registrationUploadMimeType",
+      "value": "image/jpeg"
     },
     {
       "key": "registrationUploadBucket",

@@ -6,8 +6,11 @@ import {
   Get,
   Post,
   Query,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { AnyFilesInterceptor } from "@nestjs/platform-express";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { ResponseMessage } from "../common/decorators/response-message.decorator";
 import { StorageService } from "./storage.service";
@@ -26,13 +29,63 @@ export class StorageController {
 
   constructor(private readonly storageService: StorageService) {}
 
+  @Post("public/upload-file")
+  @UseInterceptors(AnyFilesInterceptor())
+  @ResponseMessage("File uploaded successfully")
+  async uploadPublicFile(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() dto: PublicPresignedUploadDto,
+  ) {
+    const file = files?.[0];
+
+    if (!file) {
+      throw new BadRequestException("file is required");
+    }
+
+    const bucket = dto.bucket ?? this.publicUploadBucket;
+    const generatedKey = this.resolvePublicUploadKey(
+      dto.key?.trim(),
+      dto.filename ?? file.originalname,
+      dto.mimeType ?? file.mimetype,
+    );
+
+    if (!this.isAllowedPublicUploadKey(generatedKey)) {
+      throw new BadRequestException(
+        `key must start with '${this.publicUploadPrefix}' and be a safe object key`,
+      );
+    }
+
+    await this.storageService.uploadObject(
+      file.buffer,
+      bucket,
+      generatedKey,
+      file.mimetype,
+    );
+
+    return {
+      key: generatedKey,
+      objectKey: generatedKey,
+      bucket,
+      filename: file.originalname,
+      mimeType: file.mimetype,
+      size: file.size,
+      temporary: true,
+      url: this.storageService.getObjectUrl(generatedKey, bucket),
+    };
+  }
+
   @Post("public/presign-upload")
   @ResponseMessage("Public upload URL generated successfully")
   async getPublicPresignedUploadUrl(@Body() dto: PublicPresignedUploadDto) {
     const bucket = dto.bucket ?? this.publicUploadBucket;
-    const trimmedKey = dto.key.trim();
+    const trimmedKey = dto.key?.trim();
+    const resolvedKey = this.resolvePublicUploadKey(
+      trimmedKey,
+      dto.filename,
+      dto.mimeType,
+    );
 
-    if (!this.isAllowedPublicUploadKey(trimmedKey)) {
+    if (!this.isAllowedPublicUploadKey(resolvedKey)) {
       throw new BadRequestException(
         `key must start with '${this.publicUploadPrefix}' and be a safe object key`,
       );
@@ -40,13 +93,14 @@ export class StorageController {
 
     const expirySeconds = dto.expirySeconds ?? 600;
     const uploadUrl = await this.storageService.getPresignedUploadUrl(
-      trimmedKey,
+      resolvedKey,
       bucket,
       expirySeconds,
     );
 
     return {
-      key: trimmedKey,
+      key: resolvedKey,
+      objectKey: resolvedKey,
       bucket,
       method: "PUT",
       expiresIn: expirySeconds,
@@ -130,5 +184,69 @@ export class StorageController {
       !key.startsWith("http://") &&
       !key.startsWith("https://")
     );
+  }
+
+  private resolvePublicUploadKey(
+    key: string | undefined,
+    filename: string | undefined,
+    mimeType: string | undefined,
+  ): string {
+    if (key) {
+      return key;
+    }
+
+    if (!filename || !mimeType) {
+      throw new BadRequestException(
+        "Either key or filename + mimeType must be provided",
+      );
+    }
+
+    return this.generatePublicUploadKey(filename, mimeType);
+  }
+
+  private generatePublicUploadKey(filename: string, mimeType: string): string {
+    const safeName = this.sanitizeFileBaseName(filename);
+    const extension = this.resolveExtension(filename, mimeType);
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).slice(2, 8);
+
+    return `${this.publicUploadPrefix}${timestamp}-${random}-${safeName}.${extension}`;
+  }
+
+  private sanitizeFileBaseName(filename: string): string {
+    const rawName = filename.split("/").pop() ?? "file";
+    const withoutExtension = rawName.replace(/\.[^.]+$/, "");
+    const normalized = withoutExtension
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    if (!normalized) {
+      return "file";
+    }
+
+    return normalized.slice(0, 40);
+  }
+
+  private resolveExtension(filename: string, mimeType: string): string {
+    const nameExtension = filename.split(".").pop()?.toLowerCase();
+    const safeNameExtension =
+      nameExtension && /^[a-z0-9]{1,10}$/.test(nameExtension)
+        ? nameExtension
+        : undefined;
+
+    if (safeNameExtension) {
+      return safeNameExtension;
+    }
+
+    const mimeToExtension: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "application/pdf": "pdf",
+    };
+
+    return mimeToExtension[mimeType.toLowerCase()] ?? "bin";
   }
 }
