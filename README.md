@@ -1,65 +1,36 @@
-This project is a high-performance **Health & Fitness SaaS Ecosystem** that combines a structured Learning Management System (LMS) with an integrated e-commerce store. It is designed to drive user retention through a **Gamified Progression Model** and a "Path to Mastery" approach.
-
-The platform's visual identity is built on a **Glassmorphism** aesthetic—utilizing deep charcoal tones, vibrant orange accents, and semi-transparent frosted UI elements to create a professional, energetic, and premium user experience.
-
 ---
 
-## 1. Core Functional Pillars
+## **1. Core Functional Pillars**
 
-### **A. Sequential Training & LMS**
+### **A. Sequential Training & LMS (Category Based)**
+* **Restricted Access:** একটি সক্রিয় এনরোলমেন্ট ছাড়া ইউজার কোনো ওয়ার্কআউট কন্টেন্ট দেখতে পারবে না।
+* **1-Month Validation:** প্রোগ্রামের এক্সেস মাত্র **৩০ দিনের** জন্য কার্যকর থাকবে। মেয়াদ শেষ হওয়ার **৩ দিন আগে** সিস্টেম অটোমেটিক ইমেইল নোটিফিকেশন পাঠাবে। যদি ইমেইল পাঠানো ব্যর্থ হয়, তবে সিস্টেম ৩ বার পুনরায় চেষ্টা (Retry) করবে এবং এরর লগ ডাটাবেসে সেভ রাখবে।
+* **Class under class_category:** ক্লাসেসগুলো নির্দিষ্ট ক্যাটাগরির অধীনে সাজানো থাকবে। ১টি এনরোলমেন্টের মাধ্যমে ইউজার ৩টি নির্দিষ্ট ক্যাটাগরির (Beginner, Intermediate, Advanced) সব ক্লাস দেখার সুযোগ পাবে।
+* **Linear Lock System:** সঠিক ফর্ম এবং ডিসিপ্লিন বজায় রাখতে প্রতিটি ভিডিও সিরিয়াল অনুযায়ী দেখতে হবে। বর্তমান ভিডিও **১০০% সম্পন্ন** না হওয়া পর্যন্ত পরবর্তী ক্লাসটি 'Locked' থাকবে। 
+* **Milestone Achievements:** ভিডিও দেখার প্রগ্রেস যখন **৫০% এবং ৭৫%** এ পৌঁছাবে, তখন সিস্টেম মাইলস্টোন অ্যাচিভমেন্ট ট্রিগার করবে যা `class_progress` টেবিলে স্থায়ীভাবে সেভ থাকবে।
+* **Real-time Progress:** সিস্টেম প্রতিটি ভিডিওর প্রগ্রেস (সেকেন্ড অনুযায়ী) এবং পুরো ক্যাটাগরির সার্বিক অগ্রগতি ট্র্যাক করবে, যাতে ইউজার যেকোনো সময় পজ করে আবার শুরু করতে পারে।
 
-- **Restricted Access:** Users cannot view workout content without an active program enrollment.
-- **1-Month Validation:** Access to a program is strictly valid for **30 days**. After this period, the enrollment expires, and the user must re-enroll to continue, encouraging consistent training.
-- **Linear Lock System:** To ensure proper training form and discipline, the next class in a series remains locked until the current video is **100% completed**.
-- **Real-time Progress:** The system tracks individual video progress percentages, allowing students to pause and resume workouts seamlessly.
+### **B. Integrated E-commerce & Supplement Shop**
+* **Dynamic Storefront:** সাপ্লিমেন্ট এবং ফিটনেস গিয়ারের জন্য ক্যাটাগরি-বেসড ফিল্টারিং সুবিধা সম্বলিত ক্যাটালগ।
+* **Dual-Pricing Logic:** প্রতিটি প্রোডাক্টের জন্য `RegularPrice` এবং `DiscountPrice` সাপোর্ট করবে, যা মার্কেটিং ব্যানার এবং "Sale" ব্যাজ প্রদর্শনে সাহায্য করবে।
+* **Persistent Cart:** ডাটাবেস-চালিত `add_to_cart` সিস্টেম, যার ফলে ইউজার ডিভাইস পরিবর্তন করলেও তার কার্ট আইটেমগুলো হারাবে না।
 
-### **B. Gamification & XP System**
+### **C. Order & Payment Workflow**
+* **Cash on Delivery (COD):** ইউজাররা ক্যাশ অন ডেলিভারি অপশন ব্যবহার করতে পারবে, যা অ্যাডমিন কনফার্ম না করা পর্যন্ত "UNPAID" হিসেবে থাকবে।
+* **Square Payment Integration:** অনলাইন পেমেন্টের জন্য স্কয়ার এপিআই (Square API) ইন্টিগ্রেশন। পেমেন্ট সফল হলে অর্ডার স্ট্যাটাস অটোমেটিক "PAID" হবে এবং ইনভেন্টরি থেকে স্টক আপডেট হবে।
 
-- **Difficulty Multipliers:** A standalone `Difficulty` system (Beginner, Intermediate, Advanced) determines the XP (Experience Points) yield for each class.
-- **Leveling Rewards:** Upon finishing a video, the system calculates earned XP based on the difficulty multiplier. This updates the user’s global **Level** and reflects on their dashboard via circular progress charts.
-
-### **C. E-commerce & Supplement Shop**
-
-- **Dynamic Storefront:** A full grid-view catalog for supplements and fitness gear with category-based filtering.
-- **Dual-Pricing Logic:** The system supports both `RegularPrice` and `DiscountPrice`, allowing for marketing banners and "Sale" badges.
-- **Persistent Cart:** A global "Add to Cart" state that manages items via a slide-out drawer, accessible from anywhere in the app.
-
----
-
-## 2. Order & Payment Workflow (COD)
-
-Because the project operates on a **COD** or **online** payment(stripe) model, the workflow is built for manual fulfillment:
-
-- **Mobile Verification:** Orders require a verified phone number to minimize "ghost" or fake orders.
-- **Status Lifecycle:** Orders are initially placed as `UNPAID` with a `PLACED` status.
-- **Fulfillment:** Once the delivery agent collects the physical cash, the administrator updates the order to `PAID` and `DELIVERED`, completing the transaction.
+### **D. High-Performance Technical Architecture**
+* **Secure Media Storage (MinIO):** সব ভিডিও এবং ইমেজ **MinIO/S3** অবজেক্ট স্টোরেজে সংরক্ষিত থাকবে। ডাটাবেসে শুধুমাত্র **Object Key** সেভ করা হবে। 
+* **Temporary Presigned URLs:** নিরাপত্তার খাতিরে এপিআই রেসপন্সে সরাসরি ভিডিও ইউআরএল (URL) পাঠানো হবে না; পরিবর্তে একটি নির্দিষ্ট সময় মেয়াদী (Expired Time) **Presigned URL** জেনারেট করে পাঠানো হবে।
+* **Robust Backend:** Nest.js এবং Prisma ORM-এর সমন্বয়ে গঠিত একটি রিলেশনাল ডেটাবেস আর্কিটেকচার যা ডাটা ইনটেগ্রিটি নিশ্চিত করে।
 
 ---
-
-## 3. Technical Architecture
-
-- **Backend:** A robust **Nest.js** environment using **Prisma ORM** to manage the complex relational database.
-- **Database (PostgreSQL):** A structured schema that links Users to Enrollments, Programs to Classes, and Products to Orders.
-
----
-
-## 4. User Journey Summary
-
-1.  **Onboarding:** User registers and verifies their identity via **OTP**.
-2.  **Enrollment:** User chooses a program, granting them a **30-day active window**.
-3.  **Training:** User completes video classes one by one, unlocking the next only after 100% completion.
-4.  **Reward:** User earns XP and levels up their profile.
-5.  **Shopping:** User orders supplements via **COD** or online payment to support their physical training.
-
-This platform is more than just a workout app; it is a complete digital coach and retail partner that strictly rewards consistency and provides the physical tools for success.
-
-Database :
 
 ```dbml
 // =============================================
 // HEALTH & FITNESS SAAS - COMPLETE PRODUCTION DBML
-// Final Architecture: LMS + E-commerce + Square Pay
-// Optimized for NestJS + Prisma + PostgreSQL
+// Architecture: LMS + E-commerce + MinIO + Fail-Safe Email
+// Location: Dhaka, Bangladesh | Year: 2026
 // =============================================
 
 // --- AUTH & USER MANAGEMENT ---
@@ -69,72 +40,87 @@ Table users {
   email varchar(255) [unique]
   phone_number varchar(20) [unique]
   phone_verified boolean [default: false]
-  gender varchar(20)
-  birth_date date
   password_hash varchar(255)
-  avatar_url varchar(500)
+  avatar_key varchar(500) // MinIO Object Key
   is_verified boolean [default: false]
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
 }
 
-Table otp_verifications {
-  id uuid [pk]
-  user_id uuid [ref: > users.id]
-  code varchar(6)
-  purpose varchar(50) // REGISTRATION, PASSWORD_RESET
-  expires_at timestamp
-  created_at timestamp [default: `now()`]
+enum TokenType {
+  email_verification
+  password_reset
+  login_otp
 }
 
-// --- FITNESS & LMS MODULE (Open Access) ---
-Table programs {
+Table VerificationToken {
+  id uuid [pk]
+  user_id uuid [ref: > users.id]
+  token varchar(6)
+  type TokenType
+  expires_at timestamp
+  used boolean [default: false]
+
+  // Email Tracking Gaps Fixed
+  delivery_status varchar(20) [default: 'PENDING'] // PENDING, SENT, FAILED
+  retry_count integer [default: 0]
+  last_error text
+}
+
+// --- FITNESS & LMS MODULE (Category-Based) ---
+Table class_categories {
   id uuid [pk]
   title varchar(255)
   description text
-  thumbnail_url varchar(500)
+  thumbnail_key varchar(500) // MinIO Object Key
   total_classes integer [default: 0]
   created_at timestamp [default: `now()`]
-  updated_at timestamp [default: `now()`]
 }
 
 Table classes {
   id uuid [pk]
-  program_id uuid [ref: > programs.id]
-  class_order integer
+  category_id uuid [ref: > class_categories.id]
+  class_order integer // Linear locking sequence
   title varchar(255)
   subtitle varchar(255)
-  video_url varchar(500)
-  thumb_image varchar(500)
-  instructor_name varchar(100)
+  video_key varchar(500) // MinIO Object Key (Response: Presigned URL)
+  thumb_key varchar(500)  // MinIO Object Key
   duration_seconds integer
-  equipment varchar[]
-  achievements varchar[] // Milestone markers (Non-XP)
   created_at timestamp [default: `now()`]
 }
 
 Table enrollments {
   id uuid [pk]
   user_id uuid [ref: > users.id]
-  program_id uuid [ref: > programs.id]
-  status varchar(20) [default: 'ACTIVE'] // ACTIVE, EXPIRED, COMPLETED
-  overall_progress_percent integer [default: 0]
-  last_accessed_class_id uuid [ref: > classes.id, null] // For UI "Continue Watching"
+  status varchar(20) [default: 'ACTIVE'] // ACTIVE, EXPIRED
   enrolled_at timestamp [default: `now()`]
   expires_at timestamp
 
-  indexes {
-    (user_id, program_id) [unique]
-  }
+  // Expiry Notification Tracking (3-day alert)
+  expiry_email_sent boolean [default: false]
+  notification_status varchar(20) [default: 'NONE'] // SENT, FAILED
+  notification_retry_count integer [default: 0]
+  notification_last_error text
+}
+
+// 1 Enrollment -> Multiple Categories (Bundle Access)
+Table enrollment_categories {
+  id uuid [pk]
+  enrollment_id uuid [ref: > enrollments.id]
+  category_id uuid [ref: > class_categories.id]
 }
 
 Table class_progress {
   id uuid [pk]
   enrollment_id uuid [ref: > enrollments.id]
   class_id uuid [ref: > classes.id]
-  last_watched_seconds integer [default: 0] // Resume from specific second
+  last_watched_seconds integer [default: 0]
   progress_percent integer [default: 0]
   is_completed boolean [default: false]
+
+  // Milestone Tracking
+  reached_50_milestone boolean [default: false]
+  reached_75_milestone boolean [default: false]
   last_watched_at timestamp [default: `now()`]
 
   indexes {
@@ -142,33 +128,35 @@ Table class_progress {
   }
 }
 
+Table class_categories_progress {
+  id uuid [pk]
+  enrollment_id uuid [ref: > enrollments.id]
+  progress_percent integer [default: 0]
+  total_complete_class integer [default: 0]
+}
+
 // --- E-COMMERCE (SHOP) MODULE ---
 Table categories {
   id uuid [pk]
   name varchar(100) [unique]
-  created_at timestamp [default: `now()`]
 }
 
 Table products {
   id uuid [pk]
   category_id uuid [ref: > categories.id]
   title varchar(255)
-  description text
   regular_price decimal(10,2)
-  discount_price decimal(10,2) [null]
-  stock_quantity integer [default: 0] // Decremented only after successful payment
-  image_url varchar(500)
+  discount_price decimal(10,2)
+  stock_quantity integer [default: 0]
+  image_key varchar(500) // MinIO Object Key
   is_active boolean [default: true]
-  created_at timestamp [default: `now()`]
 }
 
-// Selection tracking before checkout
 Table add_to_cart {
   id uuid [pk]
   user_id uuid [ref: > users.id]
   product_id uuid [ref: > products.id]
   quantity integer [default: 1]
-  created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
 
   indexes {
@@ -180,30 +168,20 @@ Table add_to_cart {
 Table orders {
   id uuid [pk]
   user_id uuid [ref: > users.id]
-  total_amount decimal(10,2) [not null]
-  shipping_fee decimal(10,2) [default: 0.00]
-  shipping_address text [not null]
-  phone_number varchar(20) [not null]
-  payment_method varchar(20) [not null] // "COD" or "SQUARE"
-
-  // Square Gateway Details
-  square_order_id varchar(100) [null]
-  square_transaction_id varchar(100) [null]
-  square_location_id varchar(50) [null]
-
+  total_amount decimal(10,2)
+  payment_method varchar(20) // COD, SQUARE
+  payment_status varchar(20) [default: 'PENDING'] // Change to PAID deduces stock
   order_status varchar(30) [default: 'PLACED']
-  payment_status varchar(20) [default: 'PENDING'] // Change to 'PAID' triggers stock deduction
-
+  square_transaction_id varchar(100)
   created_at timestamp [default: `now()`]
-  updated_at timestamp [default: `now()`]
 }
 
 Table order_items {
   id uuid [pk]
   order_id uuid [ref: > orders.id]
   product_id uuid [ref: > products.id]
-  quantity integer [not null]
-  price_at_purchase decimal(10,2) [not null]
+  quantity integer
+  price_at_purchase decimal(10,2)
 }
 
 // --- SUPPORT ---
@@ -213,21 +191,5 @@ Table faqs {
   answer text
   sort_order integer [default: 0]
 }
+``
 ```
-
-### **Implementation Logic for Developers:**
-
-1.  **Sequential Unlock Logic:** \* To check if a user can play a video:
-    - `IF (class_order == 1 AND enrollment.status == 'ACTIVE')` -> **Unlock**.
-    - `IF (previous_class.status == 'COMPLETED' AND enrollment.status == 'ACTIVE')` -> **Unlock**.
-
-2.  **1-Month Expiry Logic:**
-    - When fetching a program, the backend should compare `expires_at` with the current system time.
-    - If `now() > expires_at`, set `enrollment.status = 'EXPIRED'` and blur the video player in the UI.
-
-3.  **XP Reward Logic:**
-    - On `progress_percent == 100`, trigger a function:
-    - `User.current_xp += (Base_XP * Difficulty.xp_multiplier)`.
-
-4.  **COD Workflow:**
-    - Since this is a "Cash One and Only Pay" system, the `orders.payment_status` stays `UNPAID` until your delivery script or admin manually confirms the physical cash receipt.
