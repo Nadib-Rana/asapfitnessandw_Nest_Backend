@@ -600,6 +600,27 @@
       "name": "Storage",
       "item": [
         {
+          "name": "Public Temporary Upload URL (Pre-registration)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"{{registrationUploadKey}}\",\n  \"bucket\": \"{{registrationUploadBucket}}\",\n  \"expirySeconds\": 600\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/storage/public/presign-upload",
+              "host": ["{{baseUrl}}"],
+              "path": ["storage", "public", "presign-upload"]
+            }
+          }
+        },
+        {
           "name": "Get Presigned Upload URL",
           "request": {
             "method": "POST",
@@ -766,6 +787,14 @@
     {
       "key": "storageBucket",
       "value": "products"
+    },
+    {
+      "key": "registrationUploadKey",
+      "value": "temp/registrations/avatar-123.jpg"
+    },
+    {
+      "key": "registrationUploadBucket",
+      "value": "profiles"
     }
   ]
 }

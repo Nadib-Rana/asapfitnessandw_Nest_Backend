@@ -61,6 +61,11 @@
   - `DELETE /storage/object`
 - Added storage module/controller/DTOs and wired module into `AppModule`.
 - Updated API docs and Postman assets with storage routes and variables (`storageKey`, `storageBucket`).
+- Added public temporary storage upload endpoint for pre-registration avatar flow:
+  - `POST /storage/public/presign-upload` (no auth)
+  - Enforced key prefix and key safety checks
+  - Added env-driven controls: `STORAGE_PUBLIC_UPLOAD_PREFIX`, `STORAGE_PUBLIC_UPLOAD_BUCKET`
+  - Synced API docs and Postman variables for this route
 
 ## In Progress
 

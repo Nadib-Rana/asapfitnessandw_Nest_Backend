@@ -35,6 +35,7 @@ This index is generated from current controller routes in `src/**/*controller.ts
 - `POST /orders/checkout`
 - `GET /orders/my`
 - `PATCH /orders/:orderId/cod-confirm`
+- `POST /storage/public/presign-upload`
 - `POST /storage/presign-upload`
 - `POST /storage/presign-download`
 - `GET /storage/object-url`
@@ -448,7 +449,29 @@ Mark COD order as paid and confirm it.
 
 ## Storage Module (`/storage`)
 
-All storage routes require authentication.
+Most storage routes require authentication.
+
+### POST `/storage/public/presign-upload`
+
+Create a temporary public presigned upload URL for pre-registration files (for example, user avatar before login).
+
+- Auth: No
+- Body:
+
+```json
+{
+  "key": "temp/registrations/avatar-123.jpg",
+  "bucket": "profiles",
+  "expirySeconds": 600
+}
+```
+
+- Validation:
+  - `key`: string (required)
+  - `key` must start with `STORAGE_PUBLIC_UPLOAD_PREFIX` (default: `temp/registrations/`)
+  - `key` must be a safe object key (no `..`, no `//`, no absolute URL)
+  - `bucket`: string (optional; defaults to `STORAGE_PUBLIC_UPLOAD_BUCKET`, default `profiles`)
+  - `expirySeconds`: integer 60..600 (optional, default 600)
 
 ### POST `/storage/presign-upload`
 
