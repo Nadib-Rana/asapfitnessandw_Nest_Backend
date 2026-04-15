@@ -11,13 +11,13 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { getMailConfig } from "./mail/mail.config";
 import { MailerModule } from "@nestjs-modules/mailer";
 import { PrismaModule } from "./prisma.module";
-import { StorageService } from "./storage/storage.service";
 import { UsersModule } from "./users/users.module";
 import { LmsModule } from "./lms/lms.module";
 import { EnrollmentModule } from "./enrollment/enrollment.module";
 import { ShopModule } from "./shop/shop.module";
 import { OrderModule } from "./order/order.module";
 import { ScheduleModule } from "@nestjs/schedule";
+import { StorageModule } from "./storage/storage.module";
 
 @Module({
   imports: [
@@ -38,11 +38,11 @@ import { ScheduleModule } from "@nestjs/schedule";
     EnrollmentModule,
     ShopModule,
     OrderModule,
+    StorageModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
-    StorageService,
     {
       provide: APP_INTERCEPTOR,
       useClass: ImageTransformInterceptor,

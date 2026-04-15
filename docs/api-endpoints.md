@@ -8,6 +8,38 @@ This document lists all currently implemented API endpoints in the NestJS backen
 - Auth scheme: `Bearer <JWT_ACCESS_TOKEN>`
 - Content type: `application/json`
 
+## Endpoint Index
+
+This index is generated from current controller routes in `src/**/*controller.ts`.
+
+- `GET /`
+- `POST /auth/register`
+- `POST /auth/verify-email`
+- `POST /auth/resend-otp`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `POST /auth/request-password-reset`
+- `POST /auth/reset-password`
+- `GET /lms/categories`
+- `GET /lms/classes`
+- `POST /enrollments`
+- `GET /enrollments/active`
+- `PATCH /enrollments/:enrollmentId/classes/:classId/progress`
+- `GET /shop/categories`
+- `GET /shop/products`
+- `GET /shop/cart`
+- `POST /shop/cart`
+- `PATCH /shop/cart/:itemId`
+- `DELETE /shop/cart/:itemId`
+- `POST /orders/webhooks/square`
+- `POST /orders/checkout`
+- `GET /orders/my`
+- `PATCH /orders/:orderId/cod-confirm`
+- `POST /storage/presign-upload`
+- `POST /storage/presign-download`
+- `GET /storage/object-url`
+- `DELETE /storage/object`
+
 ## Standard API Response
 
 All successful endpoints are wrapped by `ResponseStandardizationInterceptor`.
@@ -411,6 +443,70 @@ Mark COD order as paid and confirm it.
 - Role: `staff`
 - Path params:
   - `orderId`: UUID
+
+---
+
+## Storage Module (`/storage`)
+
+All storage routes require authentication.
+
+### POST `/storage/presign-upload`
+
+Create a presigned upload URL for direct object upload.
+
+- Auth: Yes
+- Body:
+
+```json
+{
+  "key": "products/items/item-1.jpg",
+  "bucket": "products",
+  "expirySeconds": 900
+}
+```
+
+- Validation:
+  - `key`: string (required)
+  - `bucket`: string (optional; defaults to `STORAGE_DEFAULT_BUCKET`)
+  - `expirySeconds`: integer 60..86400 (optional)
+
+### POST `/storage/presign-download`
+
+Create a presigned download URL for an object key.
+
+- Auth: Yes
+- Body:
+
+```json
+{
+  "key": "products/items/item-1.jpg",
+  "bucket": "products",
+  "expirySeconds": 900
+}
+```
+
+### GET `/storage/object-url?key=<key>&bucket=<bucket>`
+
+Get a direct/public object URL (useful for non-signed access patterns).
+
+- Auth: Yes
+- Query:
+  - `key` (required)
+  - `bucket` (optional)
+
+### DELETE `/storage/object`
+
+Delete object from storage bucket.
+
+- Auth: Yes
+- Body:
+
+```json
+{
+  "key": "products/items/item-1.jpg",
+  "bucket": "products"
+}
+```
 
 ---
 

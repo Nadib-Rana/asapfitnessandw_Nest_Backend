@@ -54,6 +54,13 @@
 - Added import-ready Postman assets:
   - `docs/asap-backend.postman_collection.json`
   - `docs/asap-backend.postman_environment.json`
+- Implemented complete Storage API endpoints:
+  - `POST /storage/presign-upload`
+  - `POST /storage/presign-download`
+  - `GET /storage/object-url`
+  - `DELETE /storage/object`
+- Added storage module/controller/DTOs and wired module into `AppModule`.
+- Updated API docs and Postman assets with storage routes and variables (`storageKey`, `storageBucket`).
 
 ## In Progress
 

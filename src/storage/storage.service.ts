@@ -3,6 +3,8 @@ import { Client as MinioClient } from "minio";
 
 @Injectable()
 export class StorageService {
+  private readonly defaultBucket =
+    process.env.STORAGE_DEFAULT_BUCKET ?? "media";
   private readonly publicEndpoint = process.env.STORAGE_PUBLIC_URL ?? "";
   private readonly defaultExpirySeconds = Number(
     process.env.STORAGE_PRESIGNED_EXPIRY_SECONDS ?? 900,
@@ -46,6 +48,10 @@ export class StorageService {
     return `${normalizedBase}/${bucket}/${encodedKey}`;
   }
 
+  getDefaultBucket(): string {
+    return this.defaultBucket;
+  }
+
   async getPresignedObjectUrl(
     key: string,
     bucket: string,
@@ -63,6 +69,39 @@ export class StorageService {
       return await this.minioClient.presignedGetObject(bucket, key, safeExpiry);
     } catch {
       return this.getObjectUrl(key, bucket);
+    }
+  }
+
+  async getPresignedUploadUrl(
+    key: string,
+    bucket: string,
+    expirySeconds = this.defaultExpirySeconds,
+  ): Promise<string> {
+    if (!this.minioClient) {
+      return this.getObjectUrl(key, bucket);
+    }
+
+    const safeExpiry = Number.isFinite(expirySeconds)
+      ? Math.max(60, Math.floor(expirySeconds))
+      : this.defaultExpirySeconds;
+
+    try {
+      return await this.minioClient.presignedPutObject(bucket, key, safeExpiry);
+    } catch {
+      return this.getObjectUrl(key, bucket);
+    }
+  }
+
+  async removeObject(key: string, bucket: string): Promise<boolean> {
+    if (!this.minioClient) {
+      return false;
+    }
+
+    try {
+      await this.minioClient.removeObject(bucket, key);
+      return true;
+    } catch {
+      return false;
     }
   }
 }
