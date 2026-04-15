@@ -1,6 +1,4 @@
 ---
-### **Prompt to Synchronize AI with Your Template**
-
 "I am starting a new project using my existing **NestJS + Prisma + PostgreSQL** template. Before we implement the new requirements, please analyze my current codebase to understand my architecture.
 
 **Current Setup in Template:**
@@ -28,15 +26,5 @@ I have updated the `README.md` with the **Final Production Blueprint** (LMS, E-c
 
 Please confirm once you have indexed the codebase and are ready to start with the `schema.prisma` migration."
 ---
-
-### **কিভাবে এটি কাজ করবে?**
-
-১. **Codebase Indexing:** এআই প্রথমে আপনার `auth` ফোল্ডার এবং `prisma` ফাইলগুলো পড়বে। এতে সে বুঝতে পারবে আপনি `Passport.js` নাকি অন্য কিছু ব্যবহার করছেন।
-২. **Consistency:** সে আপনার ভ্যালিডেশন পাইপ (ValidationPipe) বা গ্লোবাল এরর হ্যান্ডলারগুলো দেখে নেবে, যাতে নতুন কোড লিখলে সেটা আপনার টেমপ্লেটের সাথে খাপ খায়।
-৩. **Efficiency:** আপনি অলরেডি যা করে রেখেছেন (যেমন ওটিপি লজিক বা লগইন), সে সেটা আর নতুন করে লিখবে না, বরং সেটাকে ইমপ্রুভ করবে।
-
-### **পরবর্তী ধাপ:**
-
-প্রম্পটটি দেওয়ার পর এআই যখন বলবে সে রেডি, তখন আপনি তাকে বলবেন:
 
 > _"Now, let's start by updating the `schema.prisma` file according to the DBML/Requirements in README.md. Show me the changes first."_

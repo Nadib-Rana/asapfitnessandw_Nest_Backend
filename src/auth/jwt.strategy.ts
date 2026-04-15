@@ -7,6 +7,10 @@ import { jwtConstants } from "./constants";
 interface JwtPayload {
   sub: string;
   role: string;
+  isVerified?: boolean;
+  email?: string;
+  fullName?: string | null;
+  avatarKey?: string | null;
 }
 
 @Injectable()
@@ -21,6 +25,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   validate(payload: JwtPayload) {
-    return { userId: payload.sub, role: payload.role };
+    return {
+      userId: payload.sub,
+      role: payload.role,
+      isVerified: payload.isVerified,
+      email: payload.email,
+      fullName: payload.fullName,
+      avatarKey: payload.avatarKey,
+    };
   }
 }

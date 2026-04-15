@@ -12,6 +12,12 @@ import { getMailConfig } from "./mail/mail.config";
 import { MailerModule } from "@nestjs-modules/mailer";
 import { PrismaModule } from "./prisma.module";
 import { StorageService } from "./storage/storage.service";
+import { UsersModule } from "./users/users.module";
+import { LmsModule } from "./lms/lms.module";
+import { EnrollmentModule } from "./enrollment/enrollment.module";
+import { ShopModule } from "./shop/shop.module";
+import { OrderModule } from "./order/order.module";
+import { ScheduleModule } from "@nestjs/schedule";
 
 @Module({
   imports: [
@@ -19,6 +25,7 @@ import { StorageService } from "./storage/storage.service";
       isGlobal: true,
       envFilePath: ".env",
     }),
+    ScheduleModule.forRoot(),
     MailerModule.forRootAsync({
       useFactory: getMailConfig,
       inject: [ConfigService],
@@ -26,6 +33,11 @@ import { StorageService } from "./storage/storage.service";
     ContextModule,
     AuthModule,
     PrismaModule,
+    UsersModule,
+    LmsModule,
+    EnrollmentModule,
+    ShopModule,
+    OrderModule,
   ],
   controllers: [AppController],
   providers: [

@@ -18,9 +18,17 @@ export class RegisterDto {
   @IsEmail()
   email: string;
 
+  @IsOptional()
+  @IsString()
+  phoneNumber?: string;
+
   @IsString()
   @MinLength(6)
   password: string;
+
+  @IsOptional()
+  @IsString()
+  avatarKey?: string;
 
   @IsEnum(UserRole)
   role: UserRole;

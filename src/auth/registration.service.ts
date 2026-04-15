@@ -23,9 +23,60 @@ export class RegistrationService {
     return "" + randomInt(100000, 999999);
   }
 
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+  }
+
+  private async sendOtpEmailWithRetry(params: {
+    email: string;
+    subject: string;
+    template: string;
+    context: Record<string, unknown>;
+    tokenId: string;
+  }): Promise<void> {
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        await this.mailerService.sendMail({
+          to: params.email,
+          subject: params.subject,
+          template: params.template,
+          context: params.context,
+        });
+
+        await this.prisma.verificationToken.update({
+          where: { id: params.tokenId },
+          data: {
+            deliveryStatus: "SENT",
+            retryCount: attempt - 1,
+            lastError: null,
+          },
+        });
+
+        return;
+      } catch (error) {
+        const lastError = this.getErrorMessage(error);
+
+        await this.prisma.verificationToken.update({
+          where: { id: params.tokenId },
+          data: {
+            deliveryStatus: attempt === maxAttempts ? "FAILED" : "PENDING",
+            retryCount: attempt,
+            lastError,
+          },
+        });
+
+        if (attempt === maxAttempts) {
+          console.error("OTP email delivery failed after retries:", lastError);
+        }
+      }
+    }
+  }
+
   // Register user
   async register(data: RegisterDto) {
-    const { fullName, email, password, role } = data;
+    const { fullName, email, phoneNumber, password, role, avatarKey } = data;
 
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new BadRequestException("Email already exists");
@@ -33,41 +84,38 @@ export class RegistrationService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await this.prisma.user.create({
-      data: { fullName, email, password: hashedPassword, role },
+      data: {
+        fullName,
+        email,
+        phoneNumber,
+        password: hashedPassword,
+        role,
+        avatarKey,
+      },
     });
 
     const token = this.generateOTP();
-    await this.prisma.verificationToken.create({
+    const verification = await this.prisma.verificationToken.create({
       data: {
         userId: user.id,
         token,
         type: "email_verification",
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
+        deliveryStatus: "PENDING",
+        retryCount: 0,
       },
     });
 
-    try {
-      console.log("📧 Attempting to send verification email to:", email);
-      console.log(
-        "📧 Mail config - Host:",
-        process.env.MAIL_HOST,
-        "Port:",
-        process.env.MAIL_PORT,
-      );
-      await this.mailerService.sendMail({
-        to: email,
-        subject: "Welcome to Teams11!",
-        template: "./verification",
-        context: {
-          name: fullName,
-          otp: token,
-        },
-      });
-      console.log("✅ Verification email sent successfully to:", email);
-    } catch (error) {
-      console.error("❌ Error sending email:", error);
-      console.error("❌ Error details:", error.message);
-    }
+    await this.sendOtpEmailWithRetry({
+      email,
+      subject: "Welcome to Teams11!",
+      template: "./verification",
+      context: {
+        name: fullName,
+        otp: token,
+      },
+      tokenId: verification.id,
+    });
 
     return { message: "User registered. Check your email for OTP." };
   }
@@ -138,29 +186,27 @@ export class RegistrationService {
 
     // Generate new OTP
     const token = this.generateOTP();
-    await this.prisma.verificationToken.create({
+    const verification = await this.prisma.verificationToken.create({
       data: {
         userId: user.id,
         token,
         type: "email_verification",
         expiresAt: new Date(Date.now() + 5 * 60 * 1000), // OTP 5 min valid
+        deliveryStatus: "PENDING",
+        retryCount: 0,
       },
     });
 
-    // Send OTP email
-    try {
-      await this.mailerService.sendMail({
-        to: email,
-        subject: "Email Verification OTP - Teams11",
-        template: "./verification",
-        context: {
-          name: user.fullName,
-          otp: token,
-        },
-      });
-    } catch (error) {
-      console.error("Error sending resend OTP email:", error);
-    }
+    await this.sendOtpEmailWithRetry({
+      email,
+      subject: "Email Verification OTP - Teams11",
+      template: "./verification",
+      context: {
+        name: user.fullName,
+        otp: token,
+      },
+      tokenId: verification.id,
+    });
 
     return { message: "OTP resent. Check your email." };
   }
