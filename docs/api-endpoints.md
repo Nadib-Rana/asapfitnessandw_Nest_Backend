@@ -464,7 +464,7 @@ Recommended request flow:
 1. Send the actual file as multipart form-data.
 2. Use `file` as the file field name if possible.
 3. Optionally send `filename`, `mimeType`, and `bucket`.
-4. Backend returns `objectKey` and `url`.
+4. Backend returns `objectKey`, `url`, and access metadata (`restricted`, `accessType`).
 5. Store only `objectKey` in the database.
 6. When reading data later, return the actual URL from the stored object key.
 
@@ -486,8 +486,17 @@ Example multipart payload:
 Response fields:
 
 - `key` / `objectKey`: stored MinIO object key
-- `url`: object URL for immediate use
+- `url`: access URL for immediate use
+- `restricted`: boolean access flag
+  - `false` when bucket is public-read (default: `profiles`)
+  - `true` for private buckets (URL will be presigned)
+- `accessType`: `public | private-presigned`
 - `temporary`: `true`
+
+Bucket access behavior:
+
+- `profiles` bucket is configured as public-read for object downloads (`s3:GetObject` on `arn:aws:s3:::profiles/*`).
+- Other buckets keep default private behavior; no public-read policy is applied.
 
 Suggested persistence pattern:
 
@@ -505,7 +514,26 @@ Example success `data` payload:
   "mimeType": "image/jpeg",
   "size": 12345,
   "temporary": true,
-  "url": "https://storage.example.com/profiles/temp/registrations/1713231234-abc123-avatar.jpg"
+  "url": "https://storage.example.com/profiles/temp/registrations/1713231234-abc123-avatar.jpg",
+  "restricted": false,
+  "accessType": "public"
+}
+```
+
+Example for a private bucket upload:
+
+```json
+{
+  "key": "temp/registrations/1713231234-abc123-avatar.jpg",
+  "objectKey": "temp/registrations/1713231234-abc123-avatar.jpg",
+  "bucket": "voices",
+  "filename": "avatar.jpg",
+  "mimeType": "image/jpeg",
+  "size": 12345,
+  "temporary": true,
+  "url": "https://storage.example.com/voices/temp/registrations/1713231234-abc123-avatar.jpg?X-Amz-Algorithm=...",
+  "restricted": true,
+  "accessType": "private-presigned"
 }
 ```
 
