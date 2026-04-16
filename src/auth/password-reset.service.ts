@@ -39,27 +39,9 @@ export class PasswordResetService {
           context: params.context,
         });
 
-        await this.prisma.verificationToken.update({
-          where: { id: params.tokenId },
-          data: {
-            deliveryStatus: "SENT",
-            retryCount: attempt - 1,
-            lastError: null,
-          },
-        });
-
         return;
       } catch (error) {
         const lastError = this.getErrorMessage(error);
-
-        await this.prisma.verificationToken.update({
-          where: { id: params.tokenId },
-          data: {
-            deliveryStatus: attempt === maxAttempts ? "FAILED" : "PENDING",
-            retryCount: attempt,
-            lastError,
-          },
-        });
 
         if (attempt === maxAttempts) {
           console.error(
@@ -83,8 +65,6 @@ export class PasswordResetService {
         token,
         type: "password_reset",
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-        deliveryStatus: "PENDING",
-        retryCount: 0,
       },
     });
 

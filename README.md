@@ -191,5 +191,6 @@ Table faqs {
   answer text
   sort_order integer [default: 0]
 }
-``
 ```
+
+> Runtime note: the connected development database currently uses legacy auth columns (`phone`, `password`, `profile_image`) and legacy verification token timestamps. The NestJS auth layer maps the current DTO/API names to those columns until the schema migration is applied.

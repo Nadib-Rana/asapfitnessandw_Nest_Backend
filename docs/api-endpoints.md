@@ -115,6 +115,8 @@ Get hello/status message from app service.
 
 Register a new user and trigger verification OTP email.
 
+> Note: the current database connection uses legacy auth column names (`users.phone`, `users.password`, `users.profile_image`). The API still accepts `phoneNumber` and `avatarKey` in the request body, but they are mapped to the existing database columns until the schema migration is completed.
+
 - Auth: No
 - Body:
 
@@ -151,6 +153,8 @@ Verify registration OTP.
   "token": "123456"
 }
 ```
+
+> OTP records currently persist only `id`, `user_id`, `token`, `type`, `expiresAt`, `used`, and `createdAt`. Delivery tracking fields such as status/retry counters are documented in the DBML blueprint but are not yet persisted by the live schema.
 
 ### POST `/auth/resend-otp`
 

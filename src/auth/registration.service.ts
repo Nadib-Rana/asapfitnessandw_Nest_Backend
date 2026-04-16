@@ -45,27 +45,9 @@ export class RegistrationService {
           context: params.context,
         });
 
-        await this.prisma.verificationToken.update({
-          where: { id: params.tokenId },
-          data: {
-            deliveryStatus: "SENT",
-            retryCount: attempt - 1,
-            lastError: null,
-          },
-        });
-
         return;
       } catch (error) {
         const lastError = this.getErrorMessage(error);
-
-        await this.prisma.verificationToken.update({
-          where: { id: params.tokenId },
-          data: {
-            deliveryStatus: attempt === maxAttempts ? "FAILED" : "PENDING",
-            retryCount: attempt,
-            lastError,
-          },
-        });
 
         if (attempt === maxAttempts) {
           console.error("OTP email delivery failed after retries:", lastError);
@@ -101,8 +83,6 @@ export class RegistrationService {
         token,
         type: "email_verification",
         expiresAt: new Date(Date.now() + 5 * 60 * 1000),
-        deliveryStatus: "PENDING",
-        retryCount: 0,
       },
     });
 
@@ -192,8 +172,6 @@ export class RegistrationService {
         token,
         type: "email_verification",
         expiresAt: new Date(Date.now() + 5 * 60 * 1000), // OTP 5 min valid
-        deliveryStatus: "PENDING",
-        retryCount: 0,
       },
     });
 
