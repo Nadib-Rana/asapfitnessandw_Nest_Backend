@@ -4,6 +4,7 @@ import {
   Controller,
   Delete,
   Get,
+  ServiceUnavailableException,
   Post,
   Query,
   UploadedFiles,
@@ -42,6 +43,12 @@ export class StorageController {
       throw new BadRequestException("file is required");
     }
 
+    if (!this.storageService.isConfigured()) {
+      throw new ServiceUnavailableException(
+        "Storage service is not configured. Set STORAGE_ENDPOINT, STORAGE_ACCESS_KEY, and STORAGE_SECRET_KEY to upload files.",
+      );
+    }
+
     const bucket = dto.bucket ?? this.publicUploadBucket;
     const generatedKey = this.resolvePublicUploadKey(
       dto.key?.trim(),
@@ -62,6 +69,11 @@ export class StorageController {
       file.mimetype,
     );
 
+    const accessInfo = await this.storageService.getObjectAccessInfo(
+      generatedKey,
+      bucket,
+    );
+
     return {
       key: generatedKey,
       objectKey: generatedKey,
@@ -70,7 +82,9 @@ export class StorageController {
       mimeType: file.mimetype,
       size: file.size,
       temporary: true,
-      url: this.storageService.getObjectUrl(generatedKey, bucket),
+      url: accessInfo.url,
+      restricted: accessInfo.restricted,
+      accessType: accessInfo.accessType,
     };
   }
 

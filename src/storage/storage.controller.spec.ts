@@ -14,10 +14,12 @@ describe("StorageController", () => {
         {
           provide: StorageService,
           useValue: {
+            isConfigured: jest.fn().mockReturnValue(true),
             getDefaultBucket: jest.fn().mockReturnValue("media"),
             getPresignedUploadUrl: jest.fn(),
             getPresignedObjectUrl: jest.fn(),
             getObjectUrl: jest.fn(),
+            getObjectAccessInfo: jest.fn(),
             removeObject: jest.fn(),
             uploadObject: jest.fn(),
           },
@@ -124,6 +126,11 @@ describe("StorageController", () => {
   describe("public/upload-file", () => {
     it("should upload a file and return generated object key", async () => {
       service.uploadObject.mockResolvedValue(undefined as never);
+      service.getObjectAccessInfo.mockResolvedValue({
+        url: "http://localhost:9030/profiles/temp/registrations/file.jpg",
+        restricted: false,
+        accessType: "public",
+      } as never);
 
       const result = await controller.uploadPublicFile(
         [
@@ -150,6 +157,7 @@ describe("StorageController", () => {
         /^temp\/registrations\/\d+-[a-z0-9]{6}-avatar-image\.jpg$/,
       );
       expect(contentType).toBe("image/jpeg");
+      expect(service.getObjectAccessInfo).toHaveBeenCalledWith(key, "profiles");
       expect(result).toMatchObject({
         key,
         objectKey: key,
@@ -158,6 +166,8 @@ describe("StorageController", () => {
         mimeType: "image/jpeg",
         size: 12,
         temporary: true,
+        restricted: false,
+        accessType: "public",
       });
     });
 
@@ -168,6 +178,29 @@ describe("StorageController", () => {
           mimeType: "image/jpeg",
         }),
       ).rejects.toBeInstanceOf(BadRequestException);
+    });
+
+    it("should return service unavailable when storage is not configured", async () => {
+      service.isConfigured.mockReturnValue(false);
+
+      await expect(
+        controller.uploadPublicFile(
+          [
+            {
+              buffer: Buffer.from("avatar-bytes"),
+              originalname: "Avatar Image.jpg",
+              mimetype: "image/jpeg",
+              size: 12,
+            } as Express.Multer.File,
+          ],
+          {
+            filename: "Avatar Image.jpg",
+            mimeType: "image/jpeg",
+          },
+        ),
+      ).rejects.toMatchObject({
+        status: 503,
+      });
     });
   });
 

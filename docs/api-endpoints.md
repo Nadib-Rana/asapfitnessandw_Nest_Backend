@@ -456,6 +456,18 @@ Most storage routes require authentication.
 
 Upload a file directly to the backend using `multipart/form-data`; backend stores it in MinIO and returns the generated object key.
 
+Important: this endpoint requires MinIO environment variables to be configured (`STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`). If they are missing, the API returns `503 Service Unavailable`.
+The service also accepts your existing `MINIO_*` env names as fallbacks (`MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_PORT`, `MINIO_USE_SSL`, `MINIO_BUCKET_NAME`, `MINIO_PUBLIC_URL`).
+
+Recommended request flow:
+
+1. Send the actual file as multipart form-data.
+2. Use `file` as the file field name if possible.
+3. Optionally send `filename`, `mimeType`, and `bucket`.
+4. Backend returns `objectKey` and `url`.
+5. Store only `objectKey` in the database.
+6. When reading data later, return the actual URL from the stored object key.
+
 - Auth: No
 - Content-Type: `multipart/form-data`
 - Form-data fields:
