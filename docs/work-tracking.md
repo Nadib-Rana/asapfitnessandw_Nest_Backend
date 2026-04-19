@@ -20,6 +20,13 @@
   - `PATCH /lms/categories/:categoryId`
   - `DELETE /lms/categories/:categoryId`
   - Role-aware `GET /lms/categories` behavior (`vendor` gets full category list)
+- Added vendor/admin class CRUD under LMS categories:
+  - `GET /lms/categories/:categoryId/classes`
+  - `POST /lms/categories/:categoryId/classes`
+  - `GET /lms/categories/:categoryId/classes/:classId`
+  - `PATCH /lms/categories/:categoryId/classes/:classId`
+  - `DELETE /lms/categories/:categoryId/classes/:classId`
+  - Added class-order conflict checks and category `totalClasses` sync after class create/delete
 - Implemented Enrollment endpoints:
   - `POST /enrollments`
   - `GET /enrollments/active`

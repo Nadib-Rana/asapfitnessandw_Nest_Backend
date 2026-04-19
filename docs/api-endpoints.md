@@ -62,6 +62,11 @@ This file is the complete API guide for the project.
 - `GET /lms/categories/:categoryId`
 - `PATCH /lms/categories/:categoryId`
 - `DELETE /lms/categories/:categoryId`
+- `GET /lms/categories/:categoryId/classes`
+- `POST /lms/categories/:categoryId/classes`
+- `GET /lms/categories/:categoryId/classes/:classId`
+- `PATCH /lms/categories/:categoryId/classes/:classId`
+- `DELETE /lms/categories/:categoryId/classes/:classId`
 - `GET /lms/classes`
 - `POST /enrollments`
 - `GET /enrollments/active`
@@ -110,6 +115,11 @@ Role-protected endpoints:
   - `GET /lms/categories/:categoryId`
   - `PATCH /lms/categories/:categoryId`
   - `DELETE /lms/categories/:categoryId`
+  - `GET /lms/categories/:categoryId/classes`
+  - `POST /lms/categories/:categoryId/classes`
+  - `GET /lms/categories/:categoryId/classes/:classId`
+  - `PATCH /lms/categories/:categoryId/classes/:classId`
+  - `DELETE /lms/categories/:categoryId/classes/:classId`
   - `GET /shop/admin/categories`
   - `POST /shop/admin/categories`
   - `PATCH /shop/admin/categories/:categoryId`
@@ -169,12 +179,20 @@ This section gives practical call order for frontend/integration teams.
    - `GET /lms/categories/:categoryId`
    - `PATCH /lms/categories/:categoryId`
    - `DELETE /lms/categories/:categoryId`
-2. Manage shop categories:
+2. Manage classes under category:
+
+- `GET /lms/categories/:categoryId/classes`
+- `POST /lms/categories/:categoryId/classes`
+- `GET /lms/categories/:categoryId/classes/:classId`
+- `PATCH /lms/categories/:categoryId/classes/:classId`
+- `DELETE /lms/categories/:categoryId/classes/:classId`
+
+3. Manage shop categories:
    - `GET /shop/admin/categories`
    - `POST /shop/admin/categories`
    - `PATCH /shop/admin/categories/:categoryId`
    - `DELETE /shop/admin/categories/:categoryId`
-3. Manage products:
+4. Manage products:
    - `GET /shop/admin/products`
    - `POST /shop/admin/products`
    - `PATCH /shop/admin/products/:productId`
@@ -351,6 +369,47 @@ Vendor storage admin equivalents:
 ```
 
 ### DELETE `/lms/categories/:categoryId`
+
+- Access: vendor
+
+### GET `/lms/categories/:categoryId/classes`
+
+- Access: vendor
+
+### POST `/lms/categories/:categoryId/classes`
+
+- Access: vendor
+- Body:
+
+```json
+{
+  "classOrder": 1,
+  "title": "Warm-up and Mobility",
+  "subtitle": "Session 1",
+  "videoKey": "lms/videos/warmup-1.mp4",
+  "thumbKey": "lms/thumbs/warmup-1.jpg",
+  "durationSeconds": 600
+}
+```
+
+### GET `/lms/categories/:categoryId/classes/:classId`
+
+- Access: vendor
+
+### PATCH `/lms/categories/:categoryId/classes/:classId`
+
+- Access: vendor
+- Body (any updatable field):
+
+```json
+{
+  "classOrder": 2,
+  "title": "Updated title",
+  "durationSeconds": 720
+}
+```
+
+### DELETE `/lms/categories/:categoryId/classes/:classId`
 
 - Access: vendor
 

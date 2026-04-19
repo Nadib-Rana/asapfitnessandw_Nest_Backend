@@ -20,6 +20,11 @@ describe("LmsController", () => {
             getCategoryByIdForAdmin: jest.fn(),
             updateCategoryForAdmin: jest.fn(),
             deleteCategoryForAdmin: jest.fn(),
+            listCategoryClassesForAdmin: jest.fn(),
+            createClassForAdmin: jest.fn(),
+            getClassByIdForAdmin: jest.fn(),
+            updateClassForAdmin: jest.fn(),
+            deleteClassForAdmin: jest.fn(),
           },
         },
       ],
@@ -91,5 +96,68 @@ describe("LmsController", () => {
 
     await controller.deleteCategory("cat-1");
     expect(service.deleteCategoryForAdmin).toHaveBeenCalledWith("cat-1");
+  });
+
+  it("should call listCategoryClassesForAdmin", async () => {
+    service.listCategoryClassesForAdmin.mockResolvedValue([] as never);
+
+    await controller.listClassesByCategoryForAdmin("cat-1");
+    expect(service.listCategoryClassesForAdmin).toHaveBeenCalledWith("cat-1");
+  });
+
+  it("should call createClassForAdmin", async () => {
+    service.createClassForAdmin.mockResolvedValue({ id: "class-1" } as never);
+
+    await controller.createClassForAdmin("cat-1", {
+      classOrder: 1,
+      title: "Class 1",
+      subtitle: "Intro",
+      videoKey: "lms/videos/1.mp4",
+      thumbKey: "lms/thumbs/1.jpg",
+      durationSeconds: 600,
+    });
+
+    expect(service.createClassForAdmin).toHaveBeenCalledWith("cat-1", {
+      classOrder: 1,
+      title: "Class 1",
+      subtitle: "Intro",
+      videoKey: "lms/videos/1.mp4",
+      thumbKey: "lms/thumbs/1.jpg",
+      durationSeconds: 600,
+    });
+  });
+
+  it("should call getClassByIdForAdmin", async () => {
+    service.getClassByIdForAdmin.mockResolvedValue({ id: "class-1" } as never);
+
+    await controller.getClassByIdForAdmin("cat-1", "class-1");
+    expect(service.getClassByIdForAdmin).toHaveBeenCalledWith(
+      "cat-1",
+      "class-1",
+    );
+  });
+
+  it("should call updateClassForAdmin", async () => {
+    service.updateClassForAdmin.mockResolvedValue({ id: "class-1" } as never);
+
+    await controller.updateClassForAdmin("cat-1", "class-1", {
+      title: "Updated class",
+    });
+
+    expect(service.updateClassForAdmin).toHaveBeenCalledWith(
+      "cat-1",
+      "class-1",
+      { title: "Updated class" },
+    );
+  });
+
+  it("should call deleteClassForAdmin", async () => {
+    service.deleteClassForAdmin.mockResolvedValue({ id: "class-1" } as never);
+
+    await controller.deleteClassForAdmin("cat-1", "class-1");
+    expect(service.deleteClassForAdmin).toHaveBeenCalledWith(
+      "cat-1",
+      "class-1",
+    );
   });
 });

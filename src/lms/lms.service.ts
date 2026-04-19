@@ -1,16 +1,45 @@
 import { Injectable } from "@nestjs/common";
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
 } from "../common/exceptions/http.exceptions";
 import { PrismaService } from "../common/context/prisma.service";
 import { CreateClassCategoryDto } from "./dto/create-class-category.dto";
 import { UpdateClassCategoryDto } from "./dto/update-class-category.dto";
+import { CreateClassDto } from "./dto/create-class.dto";
+import { UpdateClassDto } from "./dto/update-class.dto";
 
 @Injectable()
 export class LmsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async syncCategoryClassCount(categoryId: string) {
+    const totalClasses = await this.prisma.class.count({
+      where: { categoryId },
+    });
+
+    await this.prisma.classCategory.update({
+      where: { id: categoryId },
+      data: { totalClasses },
+    });
+  }
+
+  private async getClassByIdInCategory(categoryId: string, classId: string) {
+    const item = await this.prisma.class.findFirst({
+      where: {
+        id: classId,
+        categoryId,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException("Class");
+    }
+
+    return item;
+  }
 
   async listCategoriesForAdmin() {
     return this.prisma.classCategory.findMany({
@@ -81,6 +110,119 @@ export class LmsService {
     await this.getCategoryByIdForAdmin(categoryId);
     await this.prisma.classCategory.delete({ where: { id: categoryId } });
     return { id: categoryId };
+  }
+
+  async listCategoryClassesForAdmin(categoryId: string) {
+    await this.getCategoryByIdForAdmin(categoryId);
+
+    return this.prisma.class.findMany({
+      where: { categoryId },
+      orderBy: { classOrder: "asc" },
+    });
+  }
+
+  async createClassForAdmin(categoryId: string, dto: CreateClassDto) {
+    await this.getCategoryByIdForAdmin(categoryId);
+
+    const existingByOrder = await this.prisma.class.findFirst({
+      where: {
+        categoryId,
+        classOrder: dto.classOrder,
+      },
+      select: { id: true },
+    });
+
+    if (existingByOrder) {
+      throw new ConflictException(
+        "Class order already exists for this category",
+        "CLASS_ORDER_EXISTS",
+      );
+    }
+
+    const created = await this.prisma.class.create({
+      data: {
+        categoryId,
+        classOrder: dto.classOrder,
+        title: dto.title,
+        subtitle: dto.subtitle,
+        videoKey: dto.videoKey,
+        thumbKey: dto.thumbKey,
+        durationSeconds: dto.durationSeconds,
+      },
+    });
+
+    await this.syncCategoryClassCount(categoryId);
+    return created;
+  }
+
+  async getClassByIdForAdmin(categoryId: string, classId: string) {
+    await this.getCategoryByIdForAdmin(categoryId);
+    return this.getClassByIdInCategory(categoryId, classId);
+  }
+
+  async updateClassForAdmin(
+    categoryId: string,
+    classId: string,
+    dto: UpdateClassDto,
+  ) {
+    await this.getCategoryByIdForAdmin(categoryId);
+    await this.getClassByIdInCategory(categoryId, classId);
+
+    const hasAnyField = [
+      dto.classOrder,
+      dto.title,
+      dto.subtitle,
+      dto.videoKey,
+      dto.thumbKey,
+      dto.durationSeconds,
+    ].some((value) => value !== undefined);
+
+    if (!hasAnyField) {
+      throw new BadRequestException(
+        "At least one field is required for update",
+        "CLASS_UPDATE_EMPTY",
+      );
+    }
+
+    if (dto.classOrder !== undefined) {
+      const existingByOrder = await this.prisma.class.findFirst({
+        where: {
+          categoryId,
+          classOrder: dto.classOrder,
+          id: { not: classId },
+        },
+        select: { id: true },
+      });
+
+      if (existingByOrder) {
+        throw new ConflictException(
+          "Class order already exists for this category",
+          "CLASS_ORDER_EXISTS",
+        );
+      }
+    }
+
+    return this.prisma.class.update({
+      where: { id: classId },
+      data: {
+        classOrder: dto.classOrder,
+        title: dto.title,
+        subtitle: dto.subtitle,
+        videoKey: dto.videoKey,
+        thumbKey: dto.thumbKey,
+        durationSeconds: dto.durationSeconds,
+      },
+    });
+  }
+
+  async deleteClassForAdmin(categoryId: string, classId: string) {
+    await this.getCategoryByIdForAdmin(categoryId);
+    await this.getClassByIdInCategory(categoryId, classId);
+
+    await this.prisma.class.delete({ where: { id: classId } });
+    await this.syncCategoryClassCount(categoryId);
+
+    return { id: classId };
   }
 
   private async getActiveEnrollment(userId: string) {
