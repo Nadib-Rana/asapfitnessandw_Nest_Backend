@@ -97,6 +97,7 @@ Set these in `.env`:
 - `NODE_ENV=development`
 - `DATABASE_URL=postgresql://<user>:<pass>@localhost:6098/<db>?schema=public`
 - `JWT_SECRET=<your_jwt_secret>`
+- `CORS_ORIGINS=http://localhost:3001,http://localhost:5173` (comma-separated; if omitted, all origins are allowed)
 
 ### Mail
 

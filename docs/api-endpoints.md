@@ -57,6 +57,7 @@ This file is the complete API guide for the project.
 - `POST /auth/logout`
 - `POST /auth/request-password-reset`
 - `POST /auth/reset-password`
+- `GET /users/me`
 - `GET /lms/categories`
 - `POST /lms/categories`
 - `GET /lms/categories/:categoryId`
@@ -145,8 +146,9 @@ This section gives practical call order for frontend/integration teams.
 1. Register user: `POST /auth/register`
 2. Verify OTP: `POST /auth/verify-email`
 3. Login: `POST /auth/login`
-4. Use returned `accessToken` as Bearer token for protected APIs.
-5. Optional logout: `POST /auth/logout`
+4. Load signed-in profile: `GET /users/me`
+5. Use returned `accessToken` as Bearer token for protected APIs.
+6. Optional logout: `POST /auth/logout`
 
 ### Flow B: Password Recovery
 
@@ -718,11 +720,31 @@ Or:
 
 ## Users (`/users`)
 
-- Controller exists but currently no public endpoints implemented.
+### GET `/users/me`
+
+- Access: authenticated
+- Purpose: return currently logged-in user profile information from JWT user id
+- Response `data` shape:
+
+```json
+{
+  "id": "2b0ef30d-5d65-446f-a6b2-5a5d79ae1e2a",
+  "fullName": "John Doe",
+  "email": "john@example.com",
+  "phoneNumber": "017xxxxxxxx",
+  "role": "customer",
+  "age": 28,
+  "gender": "male",
+  "avatarUrl": "https://storage.example.com/profiles/users/u1/avatar.jpg",
+  "isVerified": true,
+  "createdAt": "2026-04-20T08:30:00.000Z"
+}
+```
 
 ## 7. Client Notes
 
 - Parse standardized wrapper fields (`success`, `statusCode`, `message`, `data`) on every response.
 - Keep `requestId` for support/debug traceability.
-- For media key fields (`avatarKey`, `videoKey`, `thumbKey`, `imageKey`), URL values may be transformed by interceptors.
+- User profile endpoint (`GET /users/me`) returns `avatarUrl` directly.
+- For media key fields (`videoKey`, `thumbKey`, `imageKey`), URL values may be transformed by interceptors.
 - Enrollment expiry reminder job updates retry/error state in DB.
