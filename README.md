@@ -1,196 +1,172 @@
----
+# ASAP Fitness Backend (NestJS)
 
-## **1. Core Functional Pillars**
+Backend API for the ASAP Fitness platform, covering authentication, LMS enrollment/progress, e-commerce cart and checkout, order management, and MinIO-based storage.
 
-### **A. Sequential Training & LMS (Category Based)**
-* **Restricted Access:** একটি সক্রিয় এনরোলমেন্ট ছাড়া ইউজার কোনো ওয়ার্কআউট কন্টেন্ট দেখতে পারবে না।
-* **1-Month Validation:** প্রোগ্রামের এক্সেস মাত্র **৩০ দিনের** জন্য কার্যকর থাকবে। মেয়াদ শেষ হওয়ার **৩ দিন আগে** সিস্টেম অটোমেটিক ইমেইল নোটিফিকেশন পাঠাবে। যদি ইমেইল পাঠানো ব্যর্থ হয়, তবে সিস্টেম ৩ বার পুনরায় চেষ্টা (Retry) করবে এবং এরর লগ ডাটাবেসে সেভ রাখবে।
-* **Class under class_category:** ক্লাসেসগুলো নির্দিষ্ট ক্যাটাগরির অধীনে সাজানো থাকবে। ১টি এনরোলমেন্টের মাধ্যমে ইউজার ৩টি নির্দিষ্ট ক্যাটাগরির (Beginner, Intermediate, Advanced) সব ক্লাস দেখার সুযোগ পাবে।
-* **Linear Lock System:** সঠিক ফর্ম এবং ডিসিপ্লিন বজায় রাখতে প্রতিটি ভিডিও সিরিয়াল অনুযায়ী দেখতে হবে। বর্তমান ভিডিও **১০০% সম্পন্ন** না হওয়া পর্যন্ত পরবর্তী ক্লাসটি 'Locked' থাকবে। 
-* **Milestone Achievements:** ভিডিও দেখার প্রগ্রেস যখন **৫০% এবং ৭৫%** এ পৌঁছাবে, তখন সিস্টেম মাইলস্টোন অ্যাচিভমেন্ট ট্রিগার করবে যা `class_progress` টেবিলে স্থায়ীভাবে সেভ থাকবে।
-* **Real-time Progress:** সিস্টেম প্রতিটি ভিডিওর প্রগ্রেস (সেকেন্ড অনুযায়ী) এবং পুরো ক্যাটাগরির সার্বিক অগ্রগতি ট্র্যাক করবে, যাতে ইউজার যেকোনো সময় পজ করে আবার শুরু করতে পারে।
+## 1. Project Overview
 
-### **B. Integrated E-commerce & Supplement Shop**
-* **Dynamic Storefront:** সাপ্লিমেন্ট এবং ফিটনেস গিয়ারের জন্য ক্যাটাগরি-বেসড ফিল্টারিং সুবিধা সম্বলিত ক্যাটালগ।
-* **Dual-Pricing Logic:** প্রতিটি প্রোডাক্টের জন্য `RegularPrice` এবং `DiscountPrice` সাপোর্ট করবে, যা মার্কেটিং ব্যানার এবং "Sale" ব্যাজ প্রদর্শনে সাহায্য করবে।
-* **Persistent Cart:** ডাটাবেস-চালিত `add_to_cart` সিস্টেম, যার ফলে ইউজার ডিভাইস পরিবর্তন করলেও তার কার্ট আইটেমগুলো হারাবে না।
+This service provides:
 
-### **C. Order & Payment Workflow**
-* **Cash on Delivery (COD):** ইউজাররা ক্যাশ অন ডেলিভারি অপশন ব্যবহার করতে পারবে, যা অ্যাডমিন কনফার্ম না করা পর্যন্ত "UNPAID" হিসেবে থাকবে।
-* **Square Payment Integration:** অনলাইন পেমেন্টের জন্য স্কয়ার এপিআই (Square API) ইন্টিগ্রেশন। পেমেন্ট সফল হলে অর্ডার স্ট্যাটাস অটোমেটিক "PAID" হবে এবং ইনভেন্টরি থেকে স্টক আপডেট হবে।
+- Auth with OTP verification and password reset
+- LMS category/class access controlled by active enrollment
+- Enrollment progress tracking with linear class lock behavior
+- Shop catalog, persistent cart, and checkout flow (COD + SQUARE)
+- Order lifecycle APIs including webhook-driven payment updates
+- Storage APIs for public temporary uploads and protected object operations
+- Role-based admin routes for vendor/staff operations
 
-### **D. High-Performance Technical Architecture**
-* **Secure Media Storage (MinIO):** সব ভিডিও এবং ইমেজ **MinIO/S3** অবজেক্ট স্টোরেজে সংরক্ষিত থাকবে। ডাটাবেসে শুধুমাত্র **Object Key** সেভ করা হবে। 
-* **Temporary Presigned URLs:** নিরাপত্তার খাতিরে এপিআই রেসপন্সে সরাসরি ভিডিও ইউআরএল (URL) পাঠানো হবে না; পরিবর্তে একটি নির্দিষ্ট সময় মেয়াদী (Expired Time) **Presigned URL** জেনারেট করে পাঠানো হবে।
-* **Robust Backend:** Nest.js এবং Prisma ORM-এর সমন্বয়ে গঠিত একটি রিলেশনাল ডেটাবেস আর্কিটেকচার যা ডাটা ইনটেগ্রিটি নিশ্চিত করে।
+## 2. Tech Stack
 
----
+- Runtime: NestJS 11, TypeScript
+- Database: PostgreSQL + Prisma ORM
+- Object storage: MinIO (S3-compatible)
+- Auth: JWT + Passport
+- Validation: class-validator + global ValidationPipe
+- Email: @nestjs-modules/mailer + Handlebars templates
+- Tests: Jest (unit + e2e harness)
 
-```dbml
-// =============================================
-// HEALTH & FITNESS SAAS - COMPLETE PRODUCTION DBML
-// Architecture: LMS + E-commerce + MinIO + Fail-Safe Email
-// Location: Dhaka, Bangladesh | Year: 2026
-// =============================================
+## 3. Modules
 
-// --- AUTH & USER MANAGEMENT ---
-Table users {
-  id uuid [pk]
-  full_name varchar(255)
-  email varchar(255) [unique]
-  phone_number varchar(20) [unique]
-  phone_verified boolean [default: false]
-  password_hash varchar(255)
-  avatar_key varchar(500) // MinIO Object Key
-  is_verified boolean [default: false]
-  created_at timestamp [default: `now()`]
-  updated_at timestamp [default: `now()`]
-}
+- `auth`: register/login/verify/reset
+- `lms`: categories/classes and vendor category management
+- `enrollment`: create active enrollment and class progress updates
+- `shop`: public catalog + customer cart + vendor admin product/category CRUD
+- `order`: checkout, user order history, webhook, vendor/staff order ops
+- `storage`: public pre-registration upload helpers and authenticated storage ops
+- `common`: global error/response wrappers, interceptors, middleware, context
 
-enum TokenType {
-  email_verification
-  password_reset
-  login_otp
-}
+## 4. Role Model
 
-Table VerificationToken {
-  id uuid [pk]
-  user_id uuid [ref: > users.id]
-  token varchar(6)
-  type TokenType
-  expires_at timestamp
-  used boolean [default: false]
+- `customer`: default product user flows
+- `vendor`: LMS category admin, shop admin CRUD, order admin list, storage admin routes
+- `staff`: order COD confirmation
 
-  // Email Tracking Gaps Fixed
-  delivery_status varchar(20) [default: 'PENDING'] // PENDING, SENT, FAILED
-  retry_count integer [default: 0]
-  last_error text
-}
+## 5. Prerequisites
 
-// --- FITNESS & LMS MODULE (Category-Based) ---
-Table class_categories {
-  id uuid [pk]
-  title varchar(255)
-  description text
-  thumbnail_key varchar(500) // MinIO Object Key
-  total_classes integer [default: 0]
-  created_at timestamp [default: `now()`]
-}
+- Node.js 20+
+- Bun (project scripts use bun)
+- Docker + Docker Compose
+- PostgreSQL/MinIO/Redis can be run via `docker-compose.yml`
 
-Table classes {
-  id uuid [pk]
-  category_id uuid [ref: > class_categories.id]
-  class_order integer // Linear locking sequence
-  title varchar(255)
-  subtitle varchar(255)
-  video_key varchar(500) // MinIO Object Key (Response: Presigned URL)
-  thumb_key varchar(500)  // MinIO Object Key
-  duration_seconds integer
-  created_at timestamp [default: `now()`]
-}
+## 6. Local Setup (Step by Step)
 
-Table enrollments {
-  id uuid [pk]
-  user_id uuid [ref: > users.id]
-  status varchar(20) [default: 'ACTIVE'] // ACTIVE, EXPIRED
-  enrolled_at timestamp [default: `now()`]
-  expires_at timestamp
+1. Install dependencies:
 
-  // Expiry Notification Tracking (3-day alert)
-  expiry_email_sent boolean [default: false]
-  notification_status varchar(20) [default: 'NONE'] // SENT, FAILED
-  notification_retry_count integer [default: 0]
-  notification_last_error text
-}
+```bash
+bun install
+```
 
-// 1 Enrollment -> Multiple Categories (Bundle Access)
-Table enrollment_categories {
-  id uuid [pk]
-  enrollment_id uuid [ref: > enrollments.id]
-  category_id uuid [ref: > class_categories.id]
-}
+2. Start infrastructure services:
 
-Table class_progress {
-  id uuid [pk]
-  enrollment_id uuid [ref: > enrollments.id]
-  class_id uuid [ref: > classes.id]
-  last_watched_seconds integer [default: 0]
-  progress_percent integer [default: 0]
-  is_completed boolean [default: false]
+```bash
+docker compose up -d
+```
 
-  // Milestone Tracking
-  reached_50_milestone boolean [default: false]
-  reached_75_milestone boolean [default: false]
-  last_watched_at timestamp [default: `now()`]
+3. Create `.env` in project root (example below).
 
-  indexes {
-    (enrollment_id, class_id) [unique]
-  }
-}
+4. Generate Prisma client:
 
-Table class_categories_progress {
-  id uuid [pk]
-  enrollment_id uuid [ref: > enrollments.id]
-  progress_percent integer [default: 0]
-  total_complete_class integer [default: 0]
-}
+```bash
+bun run db:generate
+```
 
-// --- E-COMMERCE (SHOP) MODULE ---
-Table categories {
-  id uuid [pk]
-  name varchar(100) [unique]
-}
+5. Apply migrations:
 
-Table products {
-  id uuid [pk]
-  category_id uuid [ref: > categories.id]
-  title varchar(255)
-  regular_price decimal(10,2)
-  discount_price decimal(10,2)
-  stock_quantity integer [default: 0]
-  image_key varchar(500) // MinIO Object Key
-  is_active boolean [default: true]
-}
+```bash
+bun run db:migrate
+```
 
-Table add_to_cart {
-  id uuid [pk]
-  user_id uuid [ref: > users.id]
-  product_id uuid [ref: > products.id]
-  quantity integer [default: 1]
-  updated_at timestamp [default: `now()`]
+6. Run the API:
 
-  indexes {
-    (user_id, product_id) [unique]
-  }
-}
+```bash
+bun run start:dev
+```
 
-// --- SECURE ORDER & SQUARE PAYMENT ---
-Table orders {
-  id uuid [pk]
-  user_id uuid [ref: > users.id]
-  total_amount decimal(10,2)
-  payment_method varchar(20) // COD, SQUARE
-  payment_status varchar(20) [default: 'PENDING'] // Change to PAID deduces stock
-  order_status varchar(30) [default: 'PLACED']
-  square_transaction_id varchar(100)
-  created_at timestamp [default: `now()`]
-}
+7. Verify health route:
 
-Table order_items {
-  id uuid [pk]
-  order_id uuid [ref: > orders.id]
-  product_id uuid [ref: > products.id]
-  quantity integer
-  price_at_purchase decimal(10,2)
-}
+```bash
+curl http://localhost:3000/
+```
 
-// --- SUPPORT ---
-Table faqs {
-  id uuid [pk]
-  question text
-  answer text
-  sort_order integer [default: 0]
+## 7. Environment Variables
+
+Set these in `.env`:
+
+### Core
+
+- `PORT=3000`
+- `NODE_ENV=development`
+- `DATABASE_URL=postgresql://<user>:<pass>@localhost:6098/<db>?schema=public`
+- `JWT_SECRET=<your_jwt_secret>`
+
+### Mail
+
+- `MAIL_HOST=<smtp_host>`
+- `MAIL_PORT=<smtp_port>`
+- `MAIL_USER=<smtp_user>`
+- `MAIL_PASS=<smtp_password>`
+- `MAIL_FROM=<from_email>`
+
+### Storage (Primary names)
+
+- `STORAGE_ENDPOINT=localhost`
+- `STORAGE_PORT=9030`
+- `STORAGE_USE_SSL=false`
+- `STORAGE_ACCESS_KEY=<minio_access_key>`
+- `STORAGE_SECRET_KEY=<minio_secret_key>`
+- `STORAGE_DEFAULT_BUCKET=media`
+- `STORAGE_PUBLIC_URL=http://localhost:9030`
+- `STORAGE_PRESIGNED_EXPIRY_SECONDS=900`
+- `STORAGE_PUBLIC_UPLOAD_PREFIX=temp/registrations/`
+- `STORAGE_PUBLIC_UPLOAD_BUCKET=profiles`
+
+### Storage legacy-compatible fallback names
+
+The code also supports `MINIO_*` equivalents:
+
+- `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_USE_SSL`
+- `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`
+- `MINIO_BUCKET_NAME`, `MINIO_PUBLIC_URL`
+
+## 8. Useful Scripts
+
+- `bun run start:dev`: run in watch mode
+- `bun run build`: build project
+- `bun run test`: run unit tests
+- `bun run test:e2e`: run e2e tests
+- `bun run db:generate`: generate Prisma client
+- `bun run db:migrate`: create/apply local migration
+- `bun run db:migrate:prod`: deploy migrations
+- `bun run db:reset`: reset database
+- `bun run db:studio`: open Prisma Studio
+
+## 9. API Documentation
+
+- Full endpoint reference: `docs/api-endpoints.md`
+- Full project features and requirements: `docs/project-features-requirements.md`
+- Postman collection: `docs/asap-backend.postman_collection.json`
+- Postman environment: `docs/asap-backend.postman_environment.json`
+- Work log and progress notes: `docs/work-tracking.md`
+
+## 10. Response Contract
+
+Successful responses are wrapped by the global response interceptor.
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Operation successful",
+  "requestId": "req-id-or-null",
+  "timestamp": "2026-04-15T12:00:00.000Z",
+  "path": "/endpoint/path",
+  "data": {}
 }
 ```
 
-> Runtime note: the connected development database currently uses legacy auth columns (`phone`, `password`, `profile_image`) and legacy verification token timestamps. The NestJS auth layer maps the current DTO/API names to those columns until the schema migration is applied.
+Errors are standardized by the global exception filter.
+
+## 11. Notes
+
+- DTO validation is strict (`whitelist`, `forbidNonWhitelisted`, `transform`).
+- Media/object key fields can be transformed into URL output via interceptor logic.
+- Runtime DB may still use legacy auth column names; current service layer handles compatibility mappings.

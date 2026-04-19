@@ -40,9 +40,17 @@ export class OrderController {
     return this.orderService.listMyOrders(userId);
   }
 
+  @Get("admin")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("vendor")
+  @ResponseMessage("Admin orders fetched successfully")
+  listOrdersForAdmin() {
+    return this.orderService.listOrdersForAdmin();
+  }
+
   @Patch(":orderId/cod-confirm")
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles("staff")
+  @Roles("staff", "vendor")
   @ResponseMessage("COD order confirmed and marked paid")
   confirmCod(@Param("orderId") orderId: string) {
     return this.orderService.confirmCodOrder(orderId);

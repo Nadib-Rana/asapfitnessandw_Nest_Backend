@@ -1,13 +1,87 @@
 import { Injectable } from "@nestjs/common";
 import {
+  BadRequestException,
   ForbiddenException,
   NotFoundException,
 } from "../common/exceptions/http.exceptions";
 import { PrismaService } from "../common/context/prisma.service";
+import { CreateClassCategoryDto } from "./dto/create-class-category.dto";
+import { UpdateClassCategoryDto } from "./dto/update-class-category.dto";
 
 @Injectable()
 export class LmsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  async listCategoriesForAdmin() {
+    return this.prisma.classCategory.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        _count: {
+          select: { classes: true },
+        },
+      },
+    });
+  }
+
+  async getCategoryByIdForAdmin(categoryId: string) {
+    const category = await this.prisma.classCategory.findUnique({
+      where: { id: categoryId },
+      include: {
+        _count: {
+          select: { classes: true },
+        },
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException("Class category");
+    }
+
+    return category;
+  }
+
+  async createCategoryForAdmin(dto: CreateClassCategoryDto) {
+    return this.prisma.classCategory.create({
+      data: {
+        title: dto.title,
+        description: dto.description,
+        thumbnailKey: dto.thumbnailKey,
+      },
+    });
+  }
+
+  async updateCategoryForAdmin(
+    categoryId: string,
+    dto: UpdateClassCategoryDto,
+  ) {
+    const hasAnyField = [dto.title, dto.description, dto.thumbnailKey].some(
+      (value) => value !== undefined,
+    );
+
+    if (!hasAnyField) {
+      throw new BadRequestException(
+        "At least one field is required for update",
+        "CATEGORY_UPDATE_EMPTY",
+      );
+    }
+
+    await this.getCategoryByIdForAdmin(categoryId);
+
+    return this.prisma.classCategory.update({
+      where: { id: categoryId },
+      data: {
+        title: dto.title,
+        description: dto.description,
+        thumbnailKey: dto.thumbnailKey,
+      },
+    });
+  }
+
+  async deleteCategoryForAdmin(categoryId: string) {
+    await this.getCategoryByIdForAdmin(categoryId);
+    await this.prisma.classCategory.delete({ where: { id: categoryId } });
+    return { id: categoryId };
+  }
 
   private async getActiveEnrollment(userId: string) {
     const now = new Date();

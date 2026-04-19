@@ -20,6 +20,8 @@ import { PresignedDownloadDto } from "./dto/presigned-download.dto";
 import { ObjectUrlQueryDto } from "./dto/object-url-query.dto";
 import { DeleteObjectDto } from "./dto/delete-object.dto";
 import { PublicPresignedUploadDto } from "./dto/public-presigned-upload.dto";
+import { RolesGuard } from "../auth/guards/roles.guard";
+import { Roles } from "../auth/decorators/roles.decorator";
 
 @Controller("storage")
 export class StorageController {
@@ -143,10 +145,51 @@ export class StorageController {
     };
   }
 
+  @Post("admin/presign-upload")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("vendor")
+  @ResponseMessage("Admin upload URL generated successfully")
+  async getAdminPresignedUploadUrl(@Body() dto: PresignedUploadDto) {
+    const bucket = dto.bucket ?? this.storageService.getDefaultBucket();
+    const uploadUrl = await this.storageService.getPresignedUploadUrl(
+      dto.key,
+      bucket,
+      dto.expirySeconds,
+    );
+
+    return {
+      key: dto.key,
+      bucket,
+      method: "PUT",
+      expiresIn: dto.expirySeconds ?? undefined,
+      uploadUrl,
+    };
+  }
+
   @Post("presign-download")
   @UseGuards(JwtAuthGuard)
   @ResponseMessage("Download URL generated successfully")
   async getPresignedDownloadUrl(@Body() dto: PresignedDownloadDto) {
+    const bucket = dto.bucket ?? this.storageService.getDefaultBucket();
+    const downloadUrl = await this.storageService.getPresignedObjectUrl(
+      dto.key,
+      bucket,
+      dto.expirySeconds,
+    );
+
+    return {
+      key: dto.key,
+      bucket,
+      expiresIn: dto.expirySeconds ?? undefined,
+      downloadUrl,
+    };
+  }
+
+  @Post("admin/presign-download")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("vendor")
+  @ResponseMessage("Admin download URL generated successfully")
+  async getAdminPresignedDownloadUrl(@Body() dto: PresignedDownloadDto) {
     const bucket = dto.bucket ?? this.storageService.getDefaultBucket();
     const downloadUrl = await this.storageService.getPresignedObjectUrl(
       dto.key,
@@ -175,10 +218,39 @@ export class StorageController {
     };
   }
 
+  @Get("admin/object-url")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("vendor")
+  @ResponseMessage("Admin object URL generated successfully")
+  getAdminObjectUrl(@Query() query: ObjectUrlQueryDto) {
+    const bucket = query.bucket ?? this.storageService.getDefaultBucket();
+
+    return {
+      key: query.key,
+      bucket,
+      objectUrl: this.storageService.getObjectUrl(query.key, bucket),
+    };
+  }
+
   @Delete("object")
   @UseGuards(JwtAuthGuard)
   @ResponseMessage("Object deleted successfully")
   async deleteObject(@Body() dto: DeleteObjectDto) {
+    const bucket = dto.bucket ?? this.storageService.getDefaultBucket();
+    const deleted = await this.storageService.removeObject(dto.key, bucket);
+
+    return {
+      key: dto.key,
+      bucket,
+      deleted,
+    };
+  }
+
+  @Delete("admin/object")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles("vendor")
+  @ResponseMessage("Admin object deleted successfully")
+  async deleteAdminObject(@Body() dto: DeleteObjectDto) {
     const bucket = dto.bucket ?? this.storageService.getDefaultBucket();
     const deleted = await this.storageService.removeObject(dto.key, bucket);
 

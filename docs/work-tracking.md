@@ -14,6 +14,12 @@
 - Implemented LMS endpoints:
   - `GET /lms/categories`
   - `GET /lms/classes?categoryId=<uuid>`
+- Added vendor/admin LMS category CRUD support:
+  - `POST /lms/categories`
+  - `GET /lms/categories/:categoryId`
+  - `PATCH /lms/categories/:categoryId`
+  - `DELETE /lms/categories/:categoryId`
+  - Role-aware `GET /lms/categories` behavior (`vendor` gets full category list)
 - Implemented Enrollment endpoints:
   - `POST /enrollments`
   - `GET /enrollments/active`
@@ -26,10 +32,22 @@
   - `POST /shop/cart`
   - `PATCH /shop/cart/:itemId`
   - `DELETE /shop/cart/:itemId`
+- Added vendor/admin Shop management endpoints:
+  - `GET /shop/admin/categories`
+  - `POST /shop/admin/categories`
+  - `PATCH /shop/admin/categories/:categoryId`
+  - `DELETE /shop/admin/categories/:categoryId`
+  - `GET /shop/admin/products`
+  - `POST /shop/admin/products`
+  - `PATCH /shop/admin/products/:productId`
+  - `DELETE /shop/admin/products/:productId`
 - Implemented Order endpoints:
   - `POST /orders/checkout` (COD + SQUARE)
   - `GET /orders/my`
   - `PATCH /orders/:orderId/cod-confirm` (staff)
+- Added vendor/admin Order access:
+  - `GET /orders/admin`
+  - `PATCH /orders/:orderId/cod-confirm` now supports `vendor` role too
 - Added Square webhook endpoint:
   - `POST /orders/webhooks/square`
   - Handles `PAYMENT_SUCCEEDED`, `PAYMENT_FAILED`, `PAYMENT_CANCELED`
@@ -51,6 +69,12 @@
 - Added e2e assertions for standardized API success/error response contracts (global interceptor + global exception filter).
 - Added scheduler integration tests for enrollment expiry reminder processing and retry failure flow.
 - Added complete API endpoint reference documentation in `docs/api-endpoints.md`.
+- Reworked project documentation for full onboarding and usage:
+  - Rewrote `README.md` with end-to-end setup, environment variables, role model, scripts, and module overview
+  - Rewrote `docs/api-endpoints.md` with complete route index and step-by-step API workflows by role/use-case
+- Added complete project scope documentation for stakeholders:
+  - Created `docs/project-features-requirements.md` with full feature list and functional/non-functional requirements
+  - Linked new requirements document from `README.md`
 - Added import-ready Postman assets:
   - `docs/asap-backend.postman_collection.json`
   - `docs/asap-backend.postman_environment.json`
@@ -59,6 +83,11 @@
   - `POST /storage/presign-download`
   - `GET /storage/object-url`
   - `DELETE /storage/object`
+- Added vendor/admin Storage management endpoints:
+  - `POST /storage/admin/presign-upload`
+  - `POST /storage/admin/presign-download`
+  - `GET /storage/admin/object-url`
+  - `DELETE /storage/admin/object`
 - Added storage module/controller/DTOs and wired module into `AppModule`.
 - Updated API docs and Postman assets with storage routes and variables (`storageKey`, `storageBucket`).
 - Added public temporary storage upload endpoint for pre-registration avatar flow:

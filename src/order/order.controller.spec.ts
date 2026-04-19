@@ -16,6 +16,7 @@ describe("OrderController", () => {
             handleSquarePaymentWebhook: jest.fn(),
             checkout: jest.fn(),
             listMyOrders: jest.fn(),
+            listOrdersForAdmin: jest.fn(),
             confirmCodOrder: jest.fn(),
           },
         },
@@ -57,5 +58,12 @@ describe("OrderController", () => {
 
     await controller.confirmCod("o1");
     expect(service.confirmCodOrder).toHaveBeenCalledWith("o1");
+  });
+
+  it("should call listOrdersForAdmin", async () => {
+    service.listOrdersForAdmin.mockResolvedValue([] as never);
+
+    await controller.listOrdersForAdmin();
+    expect(service.listOrdersForAdmin).toHaveBeenCalledTimes(1);
   });
 });

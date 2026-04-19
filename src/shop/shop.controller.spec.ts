@@ -13,6 +13,14 @@ describe("ShopController", () => {
         {
           provide: ShopService,
           useValue: {
+            listCategoriesForAdmin: jest.fn(),
+            createCategoryForAdmin: jest.fn(),
+            updateCategoryForAdmin: jest.fn(),
+            deleteCategoryForAdmin: jest.fn(),
+            listProductsForAdmin: jest.fn(),
+            createProductForAdmin: jest.fn(),
+            updateProductForAdmin: jest.fn(),
+            deleteProductForAdmin: jest.fn(),
             listCategories: jest.fn(),
             listProducts: jest.fn(),
             getCart: jest.fn(),
@@ -40,6 +48,54 @@ describe("ShopController", () => {
 
     await controller.listProducts(query);
     expect(service.listProducts).toHaveBeenCalledWith(query);
+  });
+
+  it("should call vendor admin category methods", async () => {
+    service.listCategoriesForAdmin.mockResolvedValue([] as never);
+    service.createCategoryForAdmin.mockResolvedValue({ id: "c1" } as never);
+    service.updateCategoryForAdmin.mockResolvedValue({ id: "c1" } as never);
+    service.deleteCategoryForAdmin.mockResolvedValue({ id: "c1" } as never);
+
+    await controller.listCategoriesForAdmin();
+    await controller.createCategoryForAdmin({ name: "Supplements" });
+    await controller.updateCategoryForAdmin("c1", { name: "Gear" });
+    await controller.deleteCategoryForAdmin("c1");
+
+    expect(service.listCategoriesForAdmin).toHaveBeenCalled();
+    expect(service.createCategoryForAdmin).toHaveBeenCalledWith({
+      name: "Supplements",
+    });
+    expect(service.updateCategoryForAdmin).toHaveBeenCalledWith("c1", {
+      name: "Gear",
+    });
+    expect(service.deleteCategoryForAdmin).toHaveBeenCalledWith("c1");
+  });
+
+  it("should call vendor admin product methods", async () => {
+    const query = { onlyActive: "false" };
+
+    service.listProductsForAdmin.mockResolvedValue([] as never);
+    service.createProductForAdmin.mockResolvedValue({ id: "p1" } as never);
+    service.updateProductForAdmin.mockResolvedValue({ id: "p1" } as never);
+    service.deleteProductForAdmin.mockResolvedValue({ id: "p1" } as never);
+
+    await controller.listProductsForAdmin(query);
+    await controller.createProductForAdmin({
+      categoryId: "11111111-1111-1111-1111-111111111111",
+      title: "Bands",
+      regularPrice: 19.99,
+      stockQuantity: 20,
+      isActive: true,
+    });
+    await controller.updateProductForAdmin("p1", { stockQuantity: 12 });
+    await controller.deleteProductForAdmin("p1");
+
+    expect(service.listProductsForAdmin).toHaveBeenCalledWith(query);
+    expect(service.createProductForAdmin).toHaveBeenCalled();
+    expect(service.updateProductForAdmin).toHaveBeenCalledWith("p1", {
+      stockQuantity: 12,
+    });
+    expect(service.deleteProductForAdmin).toHaveBeenCalledWith("p1");
   });
 
   it("should call cart mutation methods with user id", async () => {

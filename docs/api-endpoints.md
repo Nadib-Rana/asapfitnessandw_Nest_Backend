@@ -1,50 +1,16 @@
 # API Endpoints Documentation
 
-## Overview
+## 1. Overview
 
-This document lists all currently implemented API endpoints in the NestJS backend.
+This file is the complete API guide for the project.
 
 - Base URL (local): `http://localhost:3000`
-- Auth scheme: `Bearer <JWT_ACCESS_TOKEN>`
-- Content type: `application/json`
+- Auth header for protected endpoints: `Authorization: Bearer <JWT_ACCESS_TOKEN>`
+- Content type: `application/json` (except multipart upload route)
 
-## Endpoint Index
+## 2. Standard Response Format
 
-This index is generated from current controller routes in `src/**/*controller.ts`.
-
-- `GET /`
-- `POST /auth/register`
-- `POST /auth/verify-email`
-- `POST /auth/resend-otp`
-- `POST /auth/login`
-- `POST /auth/logout`
-- `POST /auth/request-password-reset`
-- `POST /auth/reset-password`
-- `GET /lms/categories`
-- `GET /lms/classes`
-- `POST /enrollments`
-- `GET /enrollments/active`
-- `PATCH /enrollments/:enrollmentId/classes/:classId/progress`
-- `GET /shop/categories`
-- `GET /shop/products`
-- `GET /shop/cart`
-- `POST /shop/cart`
-- `PATCH /shop/cart/:itemId`
-- `DELETE /shop/cart/:itemId`
-- `POST /orders/webhooks/square`
-- `POST /orders/checkout`
-- `GET /orders/my`
-- `PATCH /orders/:orderId/cod-confirm`
-- `POST /storage/public/presign-upload`
-- `POST /storage/public/upload-file`
-- `POST /storage/presign-upload`
-- `POST /storage/presign-download`
-- `GET /storage/object-url`
-- `DELETE /storage/object`
-
-## Standard API Response
-
-All successful endpoints are wrapped by `ResponseStandardizationInterceptor`.
+### Success
 
 ```json
 {
@@ -58,9 +24,7 @@ All successful endpoints are wrapped by `ResponseStandardizationInterceptor`.
 }
 ```
 
-## Standard API Error Response
-
-All errors are wrapped by `AllExceptionsFilter`.
+### Error
 
 ```json
 {
@@ -83,41 +47,185 @@ All errors are wrapped by `AllExceptionsFilter`.
 }
 ```
 
-## Authentication
+## 3. Endpoint Index (All Routes)
 
-Use this header for protected routes:
+- `GET /`
+- `POST /auth/register`
+- `POST /auth/verify-email`
+- `POST /auth/resend-otp`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `POST /auth/request-password-reset`
+- `POST /auth/reset-password`
+- `GET /lms/categories`
+- `POST /lms/categories`
+- `GET /lms/categories/:categoryId`
+- `PATCH /lms/categories/:categoryId`
+- `DELETE /lms/categories/:categoryId`
+- `GET /lms/classes`
+- `POST /enrollments`
+- `GET /enrollments/active`
+- `PATCH /enrollments/:enrollmentId/classes/:classId/progress`
+- `GET /shop/categories`
+- `GET /shop/products`
+- `GET /shop/admin/categories`
+- `POST /shop/admin/categories`
+- `PATCH /shop/admin/categories/:categoryId`
+- `DELETE /shop/admin/categories/:categoryId`
+- `GET /shop/admin/products`
+- `POST /shop/admin/products`
+- `PATCH /shop/admin/products/:productId`
+- `DELETE /shop/admin/products/:productId`
+- `GET /shop/cart`
+- `POST /shop/cart`
+- `PATCH /shop/cart/:itemId`
+- `DELETE /shop/cart/:itemId`
+- `POST /orders/webhooks/square`
+- `POST /orders/checkout`
+- `GET /orders/my`
+- `GET /orders/admin`
+- `PATCH /orders/:orderId/cod-confirm`
+- `POST /storage/public/upload-file`
+- `POST /storage/public/presign-upload`
+- `POST /storage/presign-upload`
+- `POST /storage/admin/presign-upload`
+- `POST /storage/presign-download`
+- `POST /storage/admin/presign-download`
+- `GET /storage/object-url`
+- `GET /storage/admin/object-url`
+- `DELETE /storage/object`
+- `DELETE /storage/admin/object`
 
-```http
-Authorization: Bearer <access_token>
-```
+## 4. Roles and Access
 
-## Roles
+- `public`: no token required
+- `authenticated`: valid JWT required
+- `vendor`: `JwtAuthGuard + RolesGuard` with role `vendor`
+- `staff`: `JwtAuthGuard + RolesGuard` with role `staff`
 
-Some routes require `staff` role via `RolesGuard` + `@Roles("staff")`.
+Role-protected endpoints:
 
----
+- Vendor:
+  - `POST /lms/categories`
+  - `GET /lms/categories/:categoryId`
+  - `PATCH /lms/categories/:categoryId`
+  - `DELETE /lms/categories/:categoryId`
+  - `GET /shop/admin/categories`
+  - `POST /shop/admin/categories`
+  - `PATCH /shop/admin/categories/:categoryId`
+  - `DELETE /shop/admin/categories/:categoryId`
+  - `GET /shop/admin/products`
+  - `POST /shop/admin/products`
+  - `PATCH /shop/admin/products/:productId`
+  - `DELETE /shop/admin/products/:productId`
+  - `GET /orders/admin`
+  - `POST /storage/admin/presign-upload`
+  - `POST /storage/admin/presign-download`
+  - `GET /storage/admin/object-url`
+  - `DELETE /storage/admin/object`
+- Staff or vendor:
+  - `PATCH /orders/:orderId/cod-confirm`
+
+## 5. Step-by-Step API Workflows
+
+This section gives practical call order for frontend/integration teams.
+
+### Flow A: Authentication and Session Setup
+
+1. Register user: `POST /auth/register`
+2. Verify OTP: `POST /auth/verify-email`
+3. Login: `POST /auth/login`
+4. Use returned `accessToken` as Bearer token for protected APIs.
+5. Optional logout: `POST /auth/logout`
+
+### Flow B: Password Recovery
+
+1. Request reset: `POST /auth/request-password-reset`
+2. Submit OTP + new password: `POST /auth/reset-password`
+
+### Flow C: Customer LMS Journey
+
+1. Ensure user has active enrollment; if not, create with `POST /enrollments`
+2. Read active enrollment: `GET /enrollments/active`
+3. Get available categories: `GET /lms/categories`
+4. Get classes for one category: `GET /lms/classes?categoryId=<uuid>`
+5. Save watch progress: `PATCH /enrollments/:enrollmentId/classes/:classId/progress`
+
+### Flow D: Customer Shop and Checkout
+
+1. List categories: `GET /shop/categories`
+2. List products: `GET /shop/products`
+3. Add cart item: `POST /shop/cart`
+4. Review cart: `GET /shop/cart`
+5. Update quantity if needed: `PATCH /shop/cart/:itemId`
+6. Remove unwanted item if needed: `DELETE /shop/cart/:itemId`
+7. Checkout COD or SQUARE: `POST /orders/checkout`
+8. Check own order history: `GET /orders/my`
+
+### Flow E: Vendor Catalog Management
+
+1. Manage LMS categories:
+   - `POST /lms/categories`
+   - `GET /lms/categories/:categoryId`
+   - `PATCH /lms/categories/:categoryId`
+   - `DELETE /lms/categories/:categoryId`
+2. Manage shop categories:
+   - `GET /shop/admin/categories`
+   - `POST /shop/admin/categories`
+   - `PATCH /shop/admin/categories/:categoryId`
+   - `DELETE /shop/admin/categories/:categoryId`
+3. Manage products:
+   - `GET /shop/admin/products`
+   - `POST /shop/admin/products`
+   - `PATCH /shop/admin/products/:productId`
+   - `DELETE /shop/admin/products/:productId`
+
+### Flow F: Vendor/Staff Order Operations
+
+1. Vendor full order view: `GET /orders/admin`
+2. COD confirmation (vendor or staff): `PATCH /orders/:orderId/cod-confirm`
+
+### Flow G: Storage and Media
+
+Public pre-registration upload options:
+
+1. Direct multipart upload: `POST /storage/public/upload-file`
+2. Or get presigned URL first: `POST /storage/public/presign-upload`
+
+Authenticated storage options:
+
+1. Presigned upload: `POST /storage/presign-upload`
+2. Presigned download: `POST /storage/presign-download`
+3. Object URL generation: `GET /storage/object-url`
+4. Delete object: `DELETE /storage/object`
+
+Vendor storage admin equivalents:
+
+1. `POST /storage/admin/presign-upload`
+2. `POST /storage/admin/presign-download`
+3. `GET /storage/admin/object-url`
+4. `DELETE /storage/admin/object`
+
+### Flow H: Square Webhook Handling
+
+1. Payment provider calls `POST /orders/webhooks/square`
+2. Provide `eventType` and either `squareTransactionId` or `orderId`
+3. Backend updates payment/order status idempotently
+
+## 6. Module-Wise Endpoint Reference
 
 ## Root
 
 ### GET `/`
 
-Get hello/status message from app service.
+- Access: public
+- Purpose: basic service status text
 
-- Auth: No
-- Body: None
-- Success message: `Hello ASAP!`
-
----
-
-## Auth Module (`/auth`)
+## Auth (`/auth`)
 
 ### POST `/auth/register`
 
-Register a new user and trigger verification OTP email.
-
-> Note: the current database connection uses legacy auth column names (`users.phone`, `users.password`, `users.profile_image`). The API still accepts `phoneNumber` and `avatarKey` in the request body, but they are mapped to the existing database columns until the schema migration is completed.
-
-- Auth: No
+- Access: public
 - Body:
 
 ```json
@@ -133,19 +241,9 @@ Register a new user and trigger verification OTP email.
 }
 ```
 
-- Validation:
-  - `fullName`: string (required)
-  - `email`: valid email (required)
-  - `phoneNumber`: string (optional)
-  - `password`: min length 6 (required)
-  - `avatarKey`: string (optional)
-  - `role`: `customer | vendor` (required)
-
 ### POST `/auth/verify-email`
 
-Verify registration OTP.
-
-- Auth: No
+- Access: public
 - Body:
 
 ```json
@@ -154,13 +252,9 @@ Verify registration OTP.
 }
 ```
 
-> OTP records currently persist only `id`, `user_id`, `token`, `type`, `expiresAt`, `used`, and `createdAt`. Delivery tracking fields such as status/retry counters are documented in the DBML blueprint but are not yet persisted by the live schema.
-
 ### POST `/auth/resend-otp`
 
-Resend email verification OTP.
-
-- Auth: No
+- Access: public
 - Body:
 
 ```json
@@ -171,10 +265,8 @@ Resend email verification OTP.
 
 ### POST `/auth/login`
 
-Login with email or phone + password.
-
-- Auth: No
-- Body:
+- Access: public
+- Body (email):
 
 ```json
 {
@@ -183,7 +275,7 @@ Login with email or phone + password.
 }
 ```
 
-Or:
+- Body (phone):
 
 ```json
 {
@@ -194,16 +286,11 @@ Or:
 
 ### POST `/auth/logout`
 
-Logout current authenticated user.
-
-- Auth: Yes
-- Body: None
+- Access: authenticated
 
 ### POST `/auth/request-password-reset`
 
-Request password reset OTP.
-
-- Auth: No
+- Access: public
 - Body:
 
 ```json
@@ -214,9 +301,7 @@ Request password reset OTP.
 
 ### POST `/auth/reset-password`
 
-Reset password using OTP.
-
-- Auth: No
+- Access: public
 - Body:
 
 ```json
@@ -226,38 +311,60 @@ Reset password using OTP.
 }
 ```
 
----
-
-## LMS Module (`/lms`)
-
-All LMS routes require authentication.
+## LMS (`/lms`)
 
 ### GET `/lms/categories`
 
-Get categories accessible by current user's active enrollment.
+- Access: authenticated
+- Behavior:
+  - `vendor`: returns full category list for admin use
+  - others: returns enrollment-access categories
 
-- Auth: Yes
-- Body: None
+### POST `/lms/categories`
+
+- Access: vendor
+- Body:
+
+```json
+{
+  "title": "Strength",
+  "description": "Strength training for beginners",
+  "thumbnailKey": "lms/categories/strength.jpg"
+}
+```
+
+### GET `/lms/categories/:categoryId`
+
+- Access: vendor
+
+### PATCH `/lms/categories/:categoryId`
+
+- Access: vendor
+- Body (any updatable field):
+
+```json
+{
+  "title": "Updated title",
+  "description": "Updated description",
+  "thumbnailKey": "lms/categories/updated.jpg"
+}
+```
+
+### DELETE `/lms/categories/:categoryId`
+
+- Access: vendor
 
 ### GET `/lms/classes?categoryId=<uuid>`
 
-Get ordered classes for a category, including lock/progress context.
-
-- Auth: Yes
+- Access: authenticated
 - Query:
-  - `categoryId` (UUID v4, required)
+  - `categoryId` (required UUID)
 
----
-
-## Enrollment Module (`/enrollments`)
-
-All enrollment routes require authentication.
+## Enrollments (`/enrollments`)
 
 ### POST `/enrollments`
 
-Create enrollment for current user.
-
-- Auth: Yes
+- Access: authenticated
 - Body:
 
 ```json
@@ -271,25 +378,13 @@ Create enrollment for current user.
 }
 ```
 
-- Validation:
-  - `categoryIds`: array of exactly 3 UUIDs
-  - `expiresAt`: ISO datetime (optional)
-
 ### GET `/enrollments/active`
 
-Get current active enrollment with categories and progress snapshot.
-
-- Auth: Yes
-- Body: None
+- Access: authenticated
 
 ### PATCH `/enrollments/:enrollmentId/classes/:classId/progress`
 
-Update watch progress for a class.
-
-- Auth: Yes
-- Path params:
-  - `enrollmentId`: UUID
-  - `classId`: UUID
+- Access: authenticated
 - Body:
 
 ```json
@@ -299,47 +394,95 @@ Update watch progress for a class.
 }
 ```
 
-- Validation:
-  - `lastWatchedSeconds`: integer >= 0 (optional)
-  - `progressPercent`: integer 0..100 (optional)
-
----
-
-## Shop Module (`/shop`)
+## Shop (`/shop`)
 
 ### GET `/shop/categories`
 
-List product categories.
-
-- Auth: No
+- Access: public
 
 ### GET `/shop/products`
 
-List products with optional filters.
+- Access: public
+- Query (optional):
+  - `categoryId`
+  - `search`
+  - `onlyActive`
 
-- Auth: No
-- Query:
-  - `categoryId` (UUID, optional)
-  - `search` (string, optional)
-  - `onlyActive` (`"true" | "false"`, optional)
+### GET `/shop/admin/categories`
 
-Example:
+- Access: vendor
 
-```http
-GET /shop/products?categoryId=11111111-1111-1111-1111-111111111111&search=whey&onlyActive=true
+### POST `/shop/admin/categories`
+
+- Access: vendor
+- Body:
+
+```json
+{
+  "name": "Supplements"
+}
 ```
+
+### PATCH `/shop/admin/categories/:categoryId`
+
+- Access: vendor
+- Body:
+
+```json
+{
+  "name": "Fitness Gear"
+}
+```
+
+### DELETE `/shop/admin/categories/:categoryId`
+
+- Access: vendor
+
+### GET `/shop/admin/products`
+
+- Access: vendor
+
+### POST `/shop/admin/products`
+
+- Access: vendor
+- Body:
+
+```json
+{
+  "categoryId": "11111111-1111-1111-1111-111111111111",
+  "title": "Resistance Band",
+  "regularPrice": 19.99,
+  "discountPrice": 15.99,
+  "stockQuantity": 50,
+  "imageKey": "products/band.jpg",
+  "isActive": true
+}
+```
+
+### PATCH `/shop/admin/products/:productId`
+
+- Access: vendor
+- Body (any updatable field):
+
+```json
+{
+  "stockQuantity": 40,
+  "discountPrice": 14.99,
+  "isActive": true
+}
+```
+
+### DELETE `/shop/admin/products/:productId`
+
+- Access: vendor
 
 ### GET `/shop/cart`
 
-Get authenticated user's persistent cart and subtotal.
-
-- Auth: Yes
+- Access: authenticated
 
 ### POST `/shop/cart`
 
-Add or upsert a cart item.
-
-- Auth: Yes
+- Access: authenticated
 - Body:
 
 ```json
@@ -349,17 +492,9 @@ Add or upsert a cart item.
 }
 ```
 
-- Validation:
-  - `productId`: UUID
-  - `quantity`: integer 1..100
-
 ### PATCH `/shop/cart/:itemId`
 
-Update cart item quantity.
-
-- Auth: Yes
-- Path params:
-  - `itemId`: cart item id
+- Access: authenticated
 - Body:
 
 ```json
@@ -370,22 +505,14 @@ Update cart item quantity.
 
 ### DELETE `/shop/cart/:itemId`
 
-Remove a cart item.
+- Access: authenticated
 
-- Auth: Yes
-- Path params:
-  - `itemId`: cart item id
-
----
-
-## Order Module (`/orders`)
+## Orders (`/orders`)
 
 ### POST `/orders/webhooks/square`
 
-Square payment webhook callback.
-
-- Auth: No (webhook endpoint)
-- Body:
+- Access: public webhook
+- Body example:
 
 ```json
 {
@@ -394,7 +521,7 @@ Square payment webhook callback.
 }
 ```
 
-Or by order id:
+Or:
 
 ```json
 {
@@ -403,18 +530,10 @@ Or by order id:
 }
 ```
 
-- Validation:
-  - `eventType`: `PAYMENT_SUCCEEDED | PAYMENT_FAILED | PAYMENT_CANCELED`
-  - `squareTransactionId`: string (optional)
-  - `orderId`: UUID (optional)
-  - at least one identifier is required by service logic
-
 ### POST `/orders/checkout`
 
-Create order from authenticated user's cart.
-
-- Auth: Yes
-- Body:
+- Access: authenticated
+- Body COD:
 
 ```json
 {
@@ -422,7 +541,7 @@ Create order from authenticated user's cart.
 }
 ```
 
-Or:
+- Body SQUARE:
 
 ```json
 {
@@ -431,124 +550,35 @@ Or:
 }
 ```
 
-- Validation:
-  - `paymentMethod`: `COD | SQUARE`
-  - `squareTransactionId`: optional in DTO, but required by service when `SQUARE`
-
 ### GET `/orders/my`
 
-List authenticated user's orders.
+- Access: authenticated
 
-- Auth: Yes
+### GET `/orders/admin`
+
+- Access: vendor
 
 ### PATCH `/orders/:orderId/cod-confirm`
 
-Mark COD order as paid and confirm it.
+- Access: staff or vendor
 
-- Auth: Yes
-- Role: `staff`
-- Path params:
-  - `orderId`: UUID
-
----
-
-## Storage Module (`/storage`)
-
-Most storage routes require authentication.
+## Storage (`/storage`)
 
 ### POST `/storage/public/upload-file`
 
-Upload a file directly to the backend using `multipart/form-data`; backend stores it in MinIO and returns the generated object key.
-
-Important: this endpoint requires MinIO environment variables to be configured (`STORAGE_ENDPOINT`, `STORAGE_ACCESS_KEY`, `STORAGE_SECRET_KEY`). If they are missing, the API returns `503 Service Unavailable`.
-The service also accepts your existing `MINIO_*` env names as fallbacks (`MINIO_ENDPOINT`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `MINIO_PORT`, `MINIO_USE_SSL`, `MINIO_BUCKET_NAME`, `MINIO_PUBLIC_URL`).
-
-Recommended request flow:
-
-1. Send the actual file as multipart form-data.
-2. Use `file` as the file field name if possible.
-3. Optionally send `filename`, `mimeType`, and `bucket`.
-4. Backend returns `objectKey`, `url`, and access metadata (`restricted`, `accessType`).
-5. Store only `objectKey` in the database.
-6. When reading data later, return the actual URL from the stored object key.
-
-- Auth: No
-- Content-Type: `multipart/form-data`
-- Form-data fields:
-  - binary file: required (backend accepts any file field name and uses the first uploaded file; recommended key is `file`)
-  - `key`: string (optional)
-  - `filename`: string (optional; used to generate key when `key` is omitted)
-  - `mimeType`: string (optional; used to generate key when `key` is omitted)
-  - `bucket`: string (optional; defaults to `STORAGE_PUBLIC_UPLOAD_BUCKET`, default `profiles`)
-
-Example multipart payload:
-
-- file: `avatar.jpg`
-- filename: `avatar.jpg`
-- mimeType: `image/jpeg`
-
-Response fields:
-
-- `key` / `objectKey`: stored MinIO object key
-- `url`: access URL for immediate use
-- `restricted`: boolean access flag
-  - `false` when bucket is public-read (default: `profiles`)
-  - `true` for private buckets (URL will be presigned)
-- `accessType`: `public | private-presigned`
-- `temporary`: `true`
-
-Bucket access behavior:
-
-- `profiles` bucket is configured as public-read for object downloads (`s3:GetObject` on `arn:aws:s3:::profiles/*`).
-- Other buckets keep default private behavior; no public-read policy is applied.
-
-Suggested persistence pattern:
-
-- Store only `objectKey` in database (for example `avatarKey`)
-- On read APIs, return actual URL from stored key via storage URL mapping/interceptor
-
-Example success `data` payload:
-
-```json
-{
-  "key": "temp/registrations/1713231234-abc123-avatar.jpg",
-  "objectKey": "temp/registrations/1713231234-abc123-avatar.jpg",
-  "bucket": "profiles",
-  "filename": "avatar.jpg",
-  "mimeType": "image/jpeg",
-  "size": 12345,
-  "temporary": true,
-  "url": "https://storage.example.com/profiles/temp/registrations/1713231234-abc123-avatar.jpg",
-  "restricted": false,
-  "accessType": "public"
-}
-```
-
-Example for a private bucket upload:
-
-```json
-{
-  "key": "temp/registrations/1713231234-abc123-avatar.jpg",
-  "objectKey": "temp/registrations/1713231234-abc123-avatar.jpg",
-  "bucket": "voices",
-  "filename": "avatar.jpg",
-  "mimeType": "image/jpeg",
-  "size": 12345,
-  "temporary": true,
-  "url": "https://storage.example.com/voices/temp/registrations/1713231234-abc123-avatar.jpg?X-Amz-Algorithm=...",
-  "restricted": true,
-  "accessType": "private-presigned"
-}
-```
+- Access: public
+- Content type: `multipart/form-data`
+- Form fields:
+  - file (required)
+  - `key` (optional)
+  - `filename` (optional)
+  - `mimeType` (optional)
+  - `bucket` (optional)
 
 ### POST `/storage/public/presign-upload`
 
-Create a temporary public presigned upload URL for pre-registration files (for example, user avatar before login).
-
-You can now send only `filename` + `mimeType`; the server will generate a safe object key automatically.
-
-- Auth: No
-- Body:
+- Access: public
+- Body option 1:
 
 ```json
 {
@@ -559,7 +589,7 @@ You can now send only `filename` + `mimeType`; the server will generate a safe o
 }
 ```
 
-Or provide explicit key:
+- Body option 2:
 
 ```json
 {
@@ -569,22 +599,9 @@ Or provide explicit key:
 }
 ```
 
-- Validation:
-  - Provide either:
-    - `key`, or
-    - `filename` + `mimeType`
-  - `key` must start with `STORAGE_PUBLIC_UPLOAD_PREFIX` (default: `temp/registrations/`) when provided
-  - `key` must be a safe object key (no `..`, no `//`, no absolute URL)
-  - `filename`: string (used for generated key slug + extension)
-  - `mimeType`: valid mime type (used for extension fallback)
-  - `bucket`: string (optional; defaults to `STORAGE_PUBLIC_UPLOAD_BUCKET`, default `profiles`)
-  - `expirySeconds`: integer 60..600 (optional, default 600)
-
 ### POST `/storage/presign-upload`
 
-Create a presigned upload URL for direct object upload.
-
-- Auth: Yes
+- Access: authenticated
 - Body:
 
 ```json
@@ -595,16 +612,13 @@ Create a presigned upload URL for direct object upload.
 }
 ```
 
-- Validation:
-  - `key`: string (required)
-  - `bucket`: string (optional; defaults to `STORAGE_DEFAULT_BUCKET`)
-  - `expirySeconds`: integer 60..86400 (optional)
+### POST `/storage/admin/presign-upload`
+
+- Access: vendor
 
 ### POST `/storage/presign-download`
 
-Create a presigned download URL for an object key.
-
-- Auth: Yes
+- Access: authenticated
 - Body:
 
 ```json
@@ -615,20 +629,21 @@ Create a presigned download URL for an object key.
 }
 ```
 
+### POST `/storage/admin/presign-download`
+
+- Access: vendor
+
 ### GET `/storage/object-url?key=<key>&bucket=<bucket>`
 
-Get a direct/public object URL (useful for non-signed access patterns).
+- Access: authenticated
 
-- Auth: Yes
-- Query:
-  - `key` (required)
-  - `bucket` (optional)
+### GET `/storage/admin/object-url?key=<key>&bucket=<bucket>`
+
+- Access: vendor
 
 ### DELETE `/storage/object`
 
-Delete object from storage bucket.
-
-- Auth: Yes
+- Access: authenticated
 - Body:
 
 ```json
@@ -638,17 +653,17 @@ Delete object from storage bucket.
 }
 ```
 
----
+### DELETE `/storage/admin/object`
 
-## Users Module (`/users`)
+- Access: vendor
 
-Controller exists but currently no implemented routes.
+## Users (`/users`)
 
----
+- Controller exists but currently no public endpoints implemented.
 
-## Notes for Clients
+## 7. Client Notes
 
-- Always parse wrapper fields (`success`, `statusCode`, `message`, `data`) instead of assuming raw payload.
-- Use `requestId` for support/debug traceability.
-- For media fields (e.g. `avatarKey`, `videoKey`, `thumbKey`, `imageKey`), responses may include transformed URL fields from the image/media interceptor.
-- Enrollment expiry reminders run via scheduler and update retry/error status in DB.
+- Parse standardized wrapper fields (`success`, `statusCode`, `message`, `data`) on every response.
+- Keep `requestId` for support/debug traceability.
+- For media key fields (`avatarKey`, `videoKey`, `thumbKey`, `imageKey`), URL values may be transformed by interceptors.
+- Enrollment expiry reminder job updates retry/error state in DB.

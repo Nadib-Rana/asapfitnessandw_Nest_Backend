@@ -155,6 +155,29 @@ export class OrderService {
     });
   }
 
+  async listOrdersForAdmin() {
+    return this.prisma.order.findMany({
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            email: true,
+            phoneNumber: true,
+          },
+        },
+        items: {
+          include: {
+            product: {
+              select: { id: true, title: true, imageKey: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+  }
+
   async confirmCodOrder(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
