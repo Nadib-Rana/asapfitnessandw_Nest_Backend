@@ -37,7 +37,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phoneNumber\": \"01700000000\",\n  \"password\": \"secret123\",\n  \"avatarKey\": \"profiles/users/u1/avatar.jpg\",\n  \"role\": \"customer\",\n  \"referralCode\": \"REF100\",\n  \"ref\": \"campaign-a\"\n}"
+              "raw": "{\n  \"fullName\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"phoneNumber\": \"01700000000\",\n  \"password\": \"secret123\",\n  \"avatarKey\": \"profiles/users/u1/avatar.jpg\",\n  \"role\": \"customer\",\n  \"age\": 28,\n  \"gender\": \"male\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",

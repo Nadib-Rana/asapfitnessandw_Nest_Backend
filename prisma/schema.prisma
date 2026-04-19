@@ -13,6 +13,12 @@ enum UserRole {
   staff
 }
 
+enum Gender {
+  male
+  female
+  other
+}
+
 enum TokenType {
   email_verification
   password_reset
@@ -57,6 +63,8 @@ model User {
   phoneNumber   String?   @unique @map("phone")
   password      String    @map("password")
   role          UserRole  @default(customer)
+  age           Int
+  gender        Gender
   avatarKey     String?   @map("profile_image")
   isVerified    Boolean   @default(false) @map("is_verified")
   createdAt     DateTime  @default(now()) @map("created_at")

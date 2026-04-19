@@ -58,7 +58,16 @@ export class RegistrationService {
 
   // Register user
   async register(data: RegisterDto) {
-    const { fullName, email, phoneNumber, password, role, avatarKey } = data;
+    const {
+      fullName,
+      email,
+      phoneNumber,
+      password,
+      role,
+      avatarKey,
+      age,
+      gender,
+    } = data;
 
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) throw new BadRequestException("Email already exists");
@@ -73,6 +82,8 @@ export class RegistrationService {
         password: hashedPassword,
         role,
         avatarKey,
+        age,
+        gender,
       },
     });
 

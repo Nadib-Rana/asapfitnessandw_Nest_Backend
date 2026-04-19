@@ -1,14 +1,23 @@
 import {
   IsEmail,
   IsEnum,
+  IsInt,
   IsOptional,
   IsString,
+  Max,
   MinLength,
+  Min,
 } from "class-validator";
 
 export enum UserRole {
   CUSTOMER = "customer",
   VENDOR = "vendor",
+}
+
+export enum Gender {
+  MALE = "male",
+  FEMALE = "female",
+  OTHER = "other",
 }
 
 export class RegisterDto {
@@ -33,11 +42,11 @@ export class RegisterDto {
   @IsEnum(UserRole)
   role: UserRole;
 
-  @IsOptional()
-  @IsString()
-  referralCode?: string;
+  @IsInt()
+  @Min(1)
+  @Max(120)
+  age: number;
 
-  @IsOptional()
-  @IsString()
-  ref?: string;
+  @IsEnum(Gender)
+  gender: Gender;
 }

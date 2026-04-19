@@ -254,8 +254,8 @@ Vendor storage admin equivalents:
   "password": "secret123",
   "avatarKey": "profiles/users/u1/avatar.jpg",
   "role": "customer",
-  "referralCode": "REF100",
-  "ref": "campaign-a"
+  "age": 28,
+  "gender": "male"
 }
 ```
 
