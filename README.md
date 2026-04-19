@@ -97,7 +97,7 @@ Set these in `.env`:
 - `NODE_ENV=development`
 - `DATABASE_URL=postgresql://<user>:<pass>@localhost:6098/<db>?schema=public`
 - `JWT_SECRET=<your_jwt_secret>`
-- `CORS_ORIGINS=http://localhost:3001,http://localhost:5173` (comma-separated; if omitted, all origins are allowed)
+- `CORS_ORIGINS=http://localhost:3001,http://localhost:5173` (comma-separated; `http://localhost:3000` is always allowed by default)
 
 ### Mail
 
@@ -171,3 +171,4 @@ Errors are standardized by the global exception filter.
 - DTO validation is strict (`whitelist`, `forbidNonWhitelisted`, `transform`).
 - Media/object key fields can be transformed into URL output via interceptor logic.
 - Runtime DB may still use legacy auth column names; current service layer handles compatibility mappings.
+- CORS allows credentials and accepts `ngrok-skip-browser-warning` in request headers for ngrok frontend testing.
