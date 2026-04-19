@@ -172,3 +172,5 @@ Errors are standardized by the global exception filter.
 - Media/object key fields can be transformed into URL output via interceptor logic.
 - Runtime DB may still use legacy auth column names; current service layer handles compatibility mappings.
 - CORS allows credentials and accepts `ngrok-skip-browser-warning` in request headers for ngrok frontend testing.
+
+## Here is link of the DBML diagram for the updated schema: [DBML Diagram](https://dbdiagram.io/d/69dd4ac70f7c9ef2c0e9171f)
