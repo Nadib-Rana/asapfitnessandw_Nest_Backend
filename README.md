@@ -1,195 +1,176 @@
-This project is a high-performance **Health & Fitness SaaS Ecosystem** that combines a structured Learning Management System (LMS) with an integrated e-commerce store. It is designed to drive user retention through a **Gamified Progression Model** and a "Path to Mastery" approach.
+# ASAP Fitness Backend (NestJS)
 
-The platform's visual identity is built on a **Glassmorphism** aesthetic—utilizing deep charcoal tones, vibrant orange accents, and semi-transparent frosted UI elements to create a professional, energetic, and premium user experience.
+Backend API for the ASAP Fitness platform, covering authentication, LMS enrollment/progress, e-commerce cart and checkout, order management, and MinIO-based storage.
 
----
+## 1. Project Overview
 
-## 1. Core Functional Pillars
+This service provides:
 
-### **A. Sequential Training & LMS**
-* **Restricted Access:** Users cannot view workout content without an active program enrollment. 
-* **1-Month Validation:** Access to a program is strictly valid for **30 days**. After this period, the enrollment expires, and the user must re-enroll to continue, encouraging consistent training.
-* **Linear Lock System:** To ensure proper training form and discipline, the next class in a series remains locked until the current video is **100% completed**.
-* **Real-time Progress:** The system tracks individual video progress percentages, allowing students to pause and resume workouts seamlessly.
+- Auth with OTP verification and password reset
+- LMS category/class access controlled by active enrollment
+- Enrollment progress tracking with linear class lock behavior
+- Shop catalog, persistent cart, and checkout flow (COD + SQUARE)
+- Order lifecycle APIs including webhook-driven payment updates
+- Storage APIs for public temporary uploads and protected object operations
+- Role-based admin routes for vendor/staff operations
 
-### **B. Gamification & XP System**
-* **Difficulty Multipliers:** A standalone `Difficulty` system (Beginner, Intermediate, Advanced) determines the XP (Experience Points) yield for each class.
-* **Leveling Rewards:** Upon finishing a video, the system calculates earned XP based on the difficulty multiplier. This updates the user’s global **Level** and reflects on their dashboard via circular progress charts.
+## 2. Tech Stack
 
-### **C. E-commerce & Supplement Shop**
-* **Dynamic Storefront:** A full grid-view catalog for supplements and fitness gear with category-based filtering.
-* **Dual-Pricing Logic:** The system supports both `RegularPrice` and `DiscountPrice`, allowing for marketing banners and "Sale" badges.
-* **Persistent Cart:** A global "Add to Cart" state that manages items via a slide-out drawer, accessible from anywhere in the app.
+- Runtime: NestJS 11, TypeScript
+- Database: PostgreSQL + Prisma ORM
+- Object storage: MinIO (S3-compatible)
+- Auth: JWT + Passport
+- Validation: class-validator + global ValidationPipe
+- Email: @nestjs-modules/mailer + Handlebars templates
+- Tests: Jest (unit + e2e harness)
 
----
+## 3. Modules
 
-## 2. Order & Payment Workflow (COD)
-Because the project operates on a **COD** or **online** payment(stripe) model, the workflow is built for manual fulfillment:
-* **Mobile Verification:** Orders require a verified phone number to minimize "ghost" or fake orders.
-* **Status Lifecycle:** Orders are initially placed as `UNPAID` with a `PLACED` status.
-* **Fulfillment:** Once the delivery agent collects the physical cash, the administrator updates the order to `PAID` and `DELIVERED`, completing the transaction.
+- `auth`: register/login/verify/reset
+- `lms`: categories/classes and vendor category management
+- `enrollment`: create active enrollment and class progress updates
+- `shop`: public catalog + customer cart + vendor admin product/category CRUD
+- `order`: checkout, user order history, webhook, vendor/staff order ops
+- `storage`: public pre-registration upload helpers and authenticated storage ops
+- `common`: global error/response wrappers, interceptors, middleware, context
 
----
+## 4. Role Model
 
-## 3. Technical Architecture
-* **Backend:** A robust **Nest.js** environment using **Prisma ORM** to manage the complex relational database.
-* **Database (PostgreSQL):** A structured schema that links Users to Enrollments, Programs to Classes, and Products to Orders.
+- `customer`: default product user flows
+- `vendor`: LMS category admin, shop admin CRUD, order admin list, storage admin routes
+- `staff`: order COD confirmation
 
----
+## 5. Prerequisites
 
-## 4. User Journey Summary
-1.  **Onboarding:** User registers and verifies their identity via **OTP**.
-2.  **Enrollment:** User chooses a program, granting them a **30-day active window**.
-3.  **Training:** User completes video classes one by one, unlocking the next only after 100% completion.
-4.  **Reward:** User earns XP and levels up their profile.
-5.  **Shopping:** User orders supplements via **COD** or online payment to support their physical training.
-   
+- Node.js 20+
+- Bun (project scripts use bun)
+- Docker + Docker Compose
+- PostgreSQL/MinIO/Redis can be run via `docker-compose.yml`
 
+## 6. Local Setup (Step by Step)
 
+1. Install dependencies:
 
-This platform is more than just a workout app; it is a complete digital coach and retail partner that strictly rewards consistency and provides the physical tools for success.
+```bash
+bun install
+```
 
+2. Start infrastructure services:
 
+```bash
+docker compose up -d
+```
 
+3. Create `.env` in project root (example below).
 
-Database :
+4. Generate Prisma client:
 
-```dbml
-// --- AUTH & USER MODULE ---
-Table users {
-  id uuid [pk]
-  full_name varchar
-  email varchar [unique]
-  gender varchar 
-  birth_date date 
-  password_hash varchar
-  avatar_url varchar
-  current_xp integer [default: 0]
-  level integer [default: 1]
-  is_verified boolean [default: false]
-  created_at timestamp [default: `now()`]
-}
+```bash
+bun run db:generate
+```
 
-Table otp_verifications {
-  id uuid [pk]
-  user_id uuid [ref: > users.id]
-  code varchar
-  expires_at timestamp
-}
+5. Apply migrations:
 
-// --- FITNESS & DIFFICULTY MODULE ---
-Table difficulties {
-  id uuid [pk]
-  level_name varchar // Beginner, Intermediate, Advanced
-  description varchar 
-  xp_multiplier float [default: 1.0]
-}
+```bash
+bun run db:migrate
+```
 
-Table programs {
-  id uuid [pk]
-  difficulty_id uuid [ref: > difficulties.id]
-  title varchar
-  description text
-  thumbnail_url varchar
-  created_at timestamp [default: `now()`]
-}
+6. Run the API:
 
-Table classes {
-  id uuid [pk]
-  program_id uuid [ref: > programs.id]
-  class_order integer // For linear unlocking
-  difficulty_id uuid [ref: > difficulties.id]
-  title varchar
-  video_url varchar
-  subtitle varchar
-  thumb_image varchar
-  instructor_name varchar
-  achievements varchar[] 
-  equipment varchar[]
-  duration varchar
-}
+```bash
+bun run start:dev
+```
 
-Table enrollments {
-  id uuid [pk]
-  user_id uuid [ref: > users.id]
-  program_id uuid [ref: > programs.id]
-  status varchar // ACTIVE, EXPIRED, CANCELLED
-  progress_percent integer [default: 0]
-  enrolled_at timestamp [default: `now()`]
-  expires_at timestamp // Set to 30 days from enrollment
-}
+7. Verify health route:
 
-// --- E-COMMERCE (SHOP) MODULE ---
-Table categories {
-  id uuid [pk]
-  name varchar
-}
+```bash
+curl http://localhost:3000/
+```
 
-Table products {
-  id uuid [pk]
-  category_id uuid [ref: > categories.id]
-  title varchar
-  sub_title varchar
-  description text
-  regular_price decimal
-  discount_price decimal
-  stock_quantity integer
-  image_url varchar
-}
+## 7. Environment Variables
 
-Table add_to_cart {
-  id uuid [pk]
-  user_id uuid [ref: > users.id]
-  product_id uuid [ref: > products.id]
-  quantity integer
-}
+Set these in `.env`:
 
-// --- ORDER & HYBRID PAYMENT MODULE ---
-Table orders {
-  id uuid [pk]
-  user_id uuid [ref: > users.id]
-  total_amount decimal
-  shipping_address text
-  phone_number varchar 
-  payment_method varchar // "COD" or "ONLINE"
-  transaction_id varchar // For Online Pay tracking
-  order_status varchar // PLACED, SHIPPED, DELIVERED, RETURNED
-  payment_status varchar [default: "PENDING"] // PENDING, PAID, FAILED
-  created_at timestamp [default: `now()`]
-}
+### Core
 
-Table order_items {
-  id uuid [pk]
-  order_id uuid [ref: > orders.id]
-  product_id uuid [ref: > products.id]
-  quantity integer
-  price_at_purchase decimal
-}
+- `PORT=3000`
+- `NODE_ENV=development`
+- `DATABASE_URL=postgresql://<user>:<pass>@localhost:6098/<db>?schema=public`
+- `JWT_SECRET=<your_jwt_secret>`
+- `CORS_ORIGINS=http://localhost:3001,http://localhost:5173` (comma-separated; `http://localhost:3000` is always allowed by default)
 
-// --- SUPPORT ---
-Table faqs {
-  id uuid [pk]
-  question text
-  answer text
-  sort_order integer
+### Mail
+
+- `MAIL_HOST=<smtp_host>`
+- `MAIL_PORT=<smtp_port>`
+- `MAIL_USER=<smtp_user>`
+- `MAIL_PASS=<smtp_password>`
+- `MAIL_FROM=<from_email>`
+
+### Storage (Primary names)
+
+- `STORAGE_ENDPOINT=localhost`
+- `STORAGE_PORT=9030`
+- `STORAGE_USE_SSL=false`
+- `STORAGE_ACCESS_KEY=<minio_access_key>`
+- `STORAGE_SECRET_KEY=<minio_secret_key>`
+- `STORAGE_DEFAULT_BUCKET=media`
+- `STORAGE_PUBLIC_URL=http://localhost:9030`
+- `STORAGE_PRESIGNED_EXPIRY_SECONDS=900`
+- `STORAGE_PUBLIC_UPLOAD_PREFIX=temp/registrations/`
+- `STORAGE_PUBLIC_UPLOAD_BUCKET=profiles`
+
+### Storage legacy-compatible fallback names
+
+The code also supports `MINIO_*` equivalents:
+
+- `MINIO_ENDPOINT`, `MINIO_PORT`, `MINIO_USE_SSL`
+- `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`
+- `MINIO_BUCKET_NAME`, `MINIO_PUBLIC_URL`
+
+## 8. Useful Scripts
+
+- `bun run start:dev`: run in watch mode
+- `bun run build`: build project
+- `bun run test`: run unit tests
+- `bun run test:e2e`: run e2e tests
+- `bun run db:generate`: generate Prisma client
+- `bun run db:migrate`: create/apply local migration
+- `bun run db:migrate:prod`: deploy migrations
+- `bun run db:reset`: reset database
+- `bun run db:studio`: open Prisma Studio
+
+## 9. API Documentation
+
+- Full endpoint reference: `docs/api-endpoints.md`
+- Full project features and requirements: `docs/project-features-requirements.md`
+- Postman collection: `docs/asap-backend.postman_collection.json`
+- Postman environment: `docs/asap-backend.postman_environment.json`
+- Work log and progress notes: `docs/work-tracking.md`
+
+## 10. Response Contract
+
+Successful responses are wrapped by the global response interceptor.
+
+```json
+{
+  "success": true,
+  "statusCode": 200,
+  "message": "Operation successful",
+  "requestId": "req-id-or-null",
+  "timestamp": "2026-04-15T12:00:00.000Z",
+  "path": "/endpoint/path",
+  "data": {}
 }
 ```
 
----
+Errors are standardized by the global exception filter.
 
-### **Implementation Logic for Developers:**
+## 11. Notes
 
-1.  **Sequential Unlock Logic:** * To check if a user can play a video:
-    * `IF (class_order == 1 AND enrollment.status == 'ACTIVE')` -> **Unlock**.
-    * `IF (previous_class.status == 'COMPLETED' AND enrollment.status == 'ACTIVE')` -> **Unlock**.
+- DTO validation is strict (`whitelist`, `forbidNonWhitelisted`, `transform`).
+- Media/object key fields can be transformed into URL output via interceptor logic.
+- Runtime DB may still use legacy auth column names; current service layer handles compatibility mappings.
+- CORS allows credentials and accepts `ngrok-skip-browser-warning` in request headers for ngrok frontend testing.
 
-2.  **1-Month Expiry Logic:**
-    * When fetching a program, the backend should compare `expires_at` with the current system time. 
-    * If `now() > expires_at`, set `enrollment.status = 'EXPIRED'` and blur the video player in the UI.
-
-3.  **XP Reward Logic:**
-    * On `progress_percent == 100`, trigger a function: 
-    * `User.current_xp += (Base_XP * Difficulty.xp_multiplier)`.
-
-4.  **COD Workflow:**
-    * Since this is a "Cash One and Only Pay" system, the `orders.payment_status` stays `UNPAID` until your delivery script or admin manually confirms the physical cash receipt.
+## Here is link of the DBML diagram for the updated schema: [DBML Diagram](https://dbdiagram.io/d/69dd4ac70f7c9ef2c0e9171f)
