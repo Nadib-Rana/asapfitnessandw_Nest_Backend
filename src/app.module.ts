@@ -1,61 +1,75 @@
-import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
-import { AppController } from "./app.controller";
-import { AppService } from "./app.service";
-import { ContextModule } from "./common/context/context.module";
-import { RequestIdMiddleware } from "./common/middleware/request-id.middleware";
-import { APP_INTERCEPTOR, Reflector } from "@nestjs/core";
-import { ResponseStandardizationInterceptor } from "./common/interceptors/response-standardization.interceptor";
-import { ImageTransformInterceptor } from "./common/interceptors/image-transform.interceptor";
-import { AuthModule } from "./auth/auth.module";
-import { ConfigModule, ConfigService } from "@nestjs/config";
-import { getMailConfig } from "./mail/mail.config";
-import { MailerModule } from "@nestjs-modules/mailer";
-import { PrismaModule } from "./prisma.module";
-import { UsersModule } from "./users/users.module";
-import { LmsModule } from "./lms/lms.module";
-import { EnrollmentModule } from "./enrollment/enrollment.module";
-import { ShopModule } from "./shop/shop.module";
-import { OrderModule } from "./order/order.module";
-import { ScheduleModule } from "@nestjs/schedule";
-import { StorageModule } from "./storage/storage.module";
+/**
+ * src/app.module.ts
+ *
+ * Root application module.
+ * Registers the global infrastructure:
+ *   - ConfigModule   — environment variables
+ *   - ContextModule  — request-scoped AsyncLocalStorage context
+ *   - AuthModule     — JWT strategy + guards
+ *   - PrismaModule   — database connection (global)
+ *   - StorageModule  — MinIO / S3 object storage
+ *   - MailerModule   — transactional email (only loaded when MAIL_HOST is set)
+ *
+ * Add your feature modules to the imports array.
+ */
+
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_INTERCEPTOR, Reflector } from '@nestjs/core';
+import { ContextModule } from './common/context/context.module';
+import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { ResponseStandardizationInterceptor } from './common/interceptors/response-standardization.interceptor';
+import { AuthModule } from './auth/auth.module';
+import { PrismaModule } from './database/prisma.module';
+import { StorageModule } from './storage/storage.module';
+
+// Mail is optional — only register when MAIL_HOST is present in env
+const mailModules =
+  process.env.MAIL_HOST
+    ? [
+        (() => {
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { MailerModule } = require('@nestjs-modules/mailer');
+          // eslint-disable-next-line @typescript-eslint/no-require-imports
+          const { getMailConfig } = require('./mail/mail.config');
+          return MailerModule.forRootAsync({
+            useFactory: getMailConfig,
+            inject: [ConfigService],
+          });
+        })(),
+      ]
+    : [];
 
 @Module({
   imports: [
+    // --- Infrastructure ---
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ".env",
-    }),
-    ScheduleModule.forRoot(),
-    MailerModule.forRootAsync({
-      useFactory: getMailConfig,
-      inject: [ConfigService],
+      envFilePath: '.env',
     }),
     ContextModule,
-    AuthModule,
     PrismaModule,
-    UsersModule,
-    LmsModule,
-    EnrollmentModule,
-    ShopModule,
-    OrderModule,
     StorageModule,
+
+    // --- Auth Foundation ---
+    AuthModule,
+
+    // --- Mail (loaded only when MAIL_HOST env var is set) ---
+    ...mailModules,
+
+    // --- Feature modules go here ---
+    // e.g. UsersModule, ProductsModule, OrdersModule
   ],
-  controllers: [AppController],
   providers: [
-    AppService,
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: ImageTransformInterceptor,
-    },
+    Reflector,
     {
       provide: APP_INTERCEPTOR,
       useClass: ResponseStandardizationInterceptor,
     },
-    Reflector,
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RequestIdMiddleware).forRoutes("*");
+    consumer.apply(RequestIdMiddleware).forRoutes('*');
   }
 }

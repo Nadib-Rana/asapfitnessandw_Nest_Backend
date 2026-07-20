@@ -1,57 +1,100 @@
-version: "3.9"
+# ============================================================
+# docker-compose.yml — NestJS Backend Template (Development)
+# ============================================================
+# Services:
+#   app      — NestJS backend (built from local Dockerfile)
+#   postgres — PostgreSQL database
+#   minio    — MinIO object storage (S3-compatible)
+#
+# Usage:
+#   docker compose up -d          # start all services
+#   docker compose up -d postgres minio  # start only infra (run app locally)
+#   docker compose logs -f app    # tail app logs
+#   docker compose down -v        # stop and remove volumes
+# ============================================================
 
 services:
-  asar-postgres:
-    image: postgres:17-alpine
-    container_name: asar_postgres_container
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: asar_admin
-      POSTGRES_PASSWORD: asar_password_2026
-      POSTGRES_DB: asar_db
-    ports:
-      - "6098:5432" # Updated port to avoid 6096/6097
-    volumes:
-      - asar_postgres_data:/var/lib/postgresql/data
-    networks:
-      - asar_network
 
-  asar-minio:
+  # ── PostgreSQL ───────────────────────────────────────────
+  postgres:
+    image: postgres:17-alpine
+    container_name: foremosttrading_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: foremosttrading_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MinIO (S3-compatible object storage) ─────────────────
+  minio:
     image: minio/minio:latest
-    container_name: asar_minio_container
+    container_name: foremosttrading_minio
     restart: unless-stopped
     ports:
-      - "9030:9000" # API Port
-      - "9031:9001" # Console Port
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web Console → http://localhost:9001
     environment:
-      MINIO_ROOT_USER: asar_minio_user
-      MINIO_ROOT_PASSWORD: asar_minio_password
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
     volumes:
-      - asar_minio_data:/data
+      - minio_data:/data
     command: server /data --console-address ":9001"
     networks:
-      - asar_network
+      - app_network
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  asar-redis:
-    image: redis:7.2-alpine
-    container_name: asar_redis_container
+  # ── NestJS Application ───────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    container_name: foremosttrading_api
     restart: unless-stopped
+    env_file:
+      - .env                        # ← secrets come from .env, NOT baked into image
+    environment:
+      # Override specific variables for Docker networking
+      # (service names resolve as hostnames inside docker network)
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/foremosttrading_db
+      STORAGE_ENDPOINT: minio
+      STORAGE_PORT: 9000
+      STORAGE_USE_SSL: "false"
+      STORAGE_ACCESS_KEY: minioadmin
+      STORAGE_SECRET_KEY: minioadmin123
+      STORAGE_PUBLIC_URL: http://localhost:9000
+      NODE_ENV: production
     ports:
-      - "6381:6379" # Updated port to avoid 6379/6380
-    volumes:
-      - asar_redis_data:/data
-    command: redis-server --save 60 1 --loglevel warning
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     networks:
-      - asar_network
+      - app_network
 
 networks:
-  asar_network:
+  app_network:
     driver: bridge
 
 volumes:
-  asar_postgres_data:
+  postgres_data:
     driver: local
-  asar_minio_data:
-    driver: local
-  asar_redis_data:
+  minio_data:
     driver: local

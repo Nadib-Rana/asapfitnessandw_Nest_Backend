@@ -1,14 +1,11 @@
-import { Injectable } from "@nestjs/common";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@prisma/client";
+/**
+ * src/common/context/prisma.service.ts
+ *
+ * Re-exports PrismaService from the canonical database module.
+ * This shim is kept for backward compatibility with any code
+ * that imports from this location.
+ *
+ * Prefer importing directly from 'src/database/prisma.service'.
+ */
 
-@Injectable()
-export class PrismaService extends PrismaClient {
-  constructor() {
-    const adapter = new PrismaPg({
-      connectionString: process.env.DATABASE_URL,
-    });
-
-    super({ adapter });
-  }
-}
+export { PrismaService } from '../../database/prisma.service';

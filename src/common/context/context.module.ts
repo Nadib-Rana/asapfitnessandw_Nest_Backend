@@ -1,16 +1,21 @@
 /**
  * src/common/context/context.module.ts
- * * Bundles and exports the ContextService.
- * We make it @Global() so it can be injected anywhere
- * without needing to import ContextModule in every feature module.
+ *
+ * Global module providing request-scoped context via AsyncLocalStorage.
+ * Provides ContextService to the entire application.
+ *
+ * ContextService is used by:
+ *   - RequestIdMiddleware (to set request ID)
+ *   - AllExceptionsFilter (to read request ID for error responses)
+ *   - ResponseStandardizationInterceptor (to attach request ID to responses)
  */
-import { Global, Module } from "@nestjs/common";
-import { ContextService } from "./context.service";
-import { PrismaService } from "./prisma.service";
 
-@Global() // Make ContextService available globally
+import { Global, Module } from '@nestjs/common';
+import { ContextService } from './context.service';
+
+@Global()
 @Module({
-  providers: [ContextService, PrismaService],
-  exports: [ContextService, PrismaService],
+  providers: [ContextService],
+  exports: [ContextService],
 })
 export class ContextModule {}
