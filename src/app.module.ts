@@ -22,6 +22,13 @@ import { ResponseStandardizationInterceptor } from './common/interceptors/respon
 import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './database/prisma.module';
 import { StorageModule } from './storage/storage.module';
+import { CategoriesModule } from './categories/categories.module';
+import { ProductsModule } from './products/products.module';
+import { SvgEngineModule } from './svg-engine/svg-engine.module';
+import { CartModule } from './cart/cart.module';
+import { CheckoutModule } from './checkout/checkout.module';
+import { OrdersModule } from './orders/orders.module';
+import { ProductionModule } from './production/production.module';
 
 // Mail is optional — only register when MAIL_HOST is present in env
 const mailModules =
@@ -57,8 +64,14 @@ const mailModules =
     // --- Mail (loaded only when MAIL_HOST env var is set) ---
     ...mailModules,
 
-    // --- Feature modules go here ---
-    // e.g. UsersModule, ProductsModule, OrdersModule
+    // --- Feature modules ---
+    CategoriesModule,
+    ProductsModule,
+    SvgEngineModule,
+    CartModule,
+    CheckoutModule,
+    OrdersModule,
+    ProductionModule,
   ],
   providers: [
     Reflector,

@@ -15,6 +15,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { jwtConstants } from './constants';
 import { RolesGuard } from './guards/roles.guard';
 import { AuthService } from './auth.service';
+import { AuthController } from './auth.controller';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AuthService } from './auth.service';
     }),
     ContextModule,
   ],
+  controllers: [AuthController],
   providers: [AuthService, JwtStrategy, RolesGuard],
   exports: [AuthService, JwtModule, JwtStrategy, RolesGuard],
 })

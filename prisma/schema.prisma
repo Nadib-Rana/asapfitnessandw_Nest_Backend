@@ -1,64 +1,700 @@
-// This is your Prisma schema file for the NestJS Backend Template.
-// Replace the User and VerificationToken models with your application schema.
-//
-// Learn more: https://pris.ly/d/prisma-schema
+datasource db {
+  provider = "postgresql"
+}
 
 generator client {
   provider = "prisma-client-js"
 }
 
-// NOTE: In Prisma 7, the database URL is configured in prisma.config.ts
-// not in the schema file. See prisma.config.ts at the project root.
-datasource db {
-  provider = "postgresql"
-}
-
 // ============================================================
-// ENUMS — add your application enums here
+// ENUMS
 // ============================================================
 
 enum UserRole {
-  user
-  admin
+  ADMIN
+  CUSTOMER
+  PRODUCTION
 }
 
-enum TokenType {
-  email_verification
-  password_reset
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PRINTING
+  PACKAGING
+  SHIPPING
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+}
+
+enum LayerType {
+  FILL
+  STROKE
+  TEXT
+  IMAGE
+  GROUP
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
 }
 
 // ============================================================
-// MODELS — replace with your application models
+// MODELS
 // ============================================================
 
-/// Base user model.
-/// Extend with profile fields, relations, etc. as needed.
 model User {
-  id         String   @id @default(uuid()) @db.Uuid
-  email      String   @unique
-  password   String
-  role       UserRole @default(user)
-  isVerified Boolean  @default(false) @map("is_verified")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  role         UserRole  @default(CUSTOMER)
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
+  customer     Customer?
+  admin        Admin?
+  auditLogs    AuditLog[]
+  notifications Notification[]
   verificationTokens VerificationToken[]
 
   @@map("users")
 }
 
-/// Token used for email verification and password reset flows.
 model VerificationToken {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token     String    @unique
-  type      TokenType
-  expiresAt DateTime  @map("expires_at")
-  used      Boolean   @default(false)
-  createdAt DateTime  @default(now()) @map("created_at")
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  type      String   @db.VarChar(50) // e.g. email_verification, password_reset
+  expiresAt DateTime @map("expires_at")
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@map("verification_tokens")
   @@index([token])
   @@index([userId, type, used])
+}
+
+model Customer {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @unique @map("user_id") @db.Uuid
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName       String            @map("first_name") @db.VarChar(100)
+  lastName        String            @map("last_name") @db.VarChar(100)
+  phone           String?           @db.VarChar(20)
+  companyName     String?           @map("company_name") @db.VarChar(150)
+  dob             DateTime?
+  gender          String?           @db.VarChar(20)
+  address         String?           @db.Text
+  profileImageUrl String?           @map("profile_image_url") @db.VarChar(512)
+
+  savedDesigns      SavedDesign[]
+  carts             Cart[]
+  shippingAddresses ShippingAddress[]
+  orders            Order[]
+
+  @@map("customers")
+}
+
+model Admin {
+  id          String  @id @default(uuid()) @db.Uuid
+  userId      String  @unique @map("user_id") @db.Uuid
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department  String? @db.VarChar(100)
+  accessLevel String  @default("STANDARD") @map("access_level") @db.VarChar(50)
+
+  @@map("admins")
+}
+
+model Category {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(100)
+  slug        String    @unique @db.VarChar(100)
+  description String?   @db.Text
+  parentId    String?   @map("parent_id") @db.Uuid
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+
+  productTemplates ProductTemplate[]
+  products         Product[]
+
+  @@map("categories")
+}
+
+model ProductTemplate {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(100)
+  categoryId  String    @map("category_id") @db.Uuid
+  category    Category  @relation(fields: [categoryId], references: [id])
+  description String?   @db.Text
+  basePrice   Decimal   @default(0.00) @map("base_price") @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  svgFile     SvgFile?
+  products    Product[]
+
+  @@map("product_templates")
+}
+
+model Product {
+  id             String          @id @default(uuid()) @db.Uuid
+  templateId     String          @map("template_id") @db.Uuid
+  template       ProductTemplate @relation(fields: [templateId], references: [id])
+  categoryId     String          @map("category_id") @db.Uuid
+  category       Category        @relation(fields: [categoryId], references: [id])
+  brandName      String?         @map("brand_name") @db.VarChar(100)
+  name           String          @db.VarChar(150)
+  slug           String          @unique @db.VarChar(150)
+  description    String?         @db.Text
+  basePrice      Decimal         @map("base_price") @db.Decimal(10, 2)
+  isCustomizable Boolean         @default(true) @map("is_customizable")
+  isActive       Boolean         @default(true) @map("is_active")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  images        ProductImage[]
+  variants      ProductVariant[]
+  layerMappings ProductLayerMapping[]
+  colors        ProductColor[]
+  patterns      ProductPattern[]
+  fonts         ProductFont[]
+  configuration ProductConfiguration?
+  upchargeRules UpchargeRule[]
+  discountRules QuantityDiscountRule[]
+  savedDesigns  SavedDesign[]
+  cartItems     CartItem[]
+  orderItems    OrderItem[]
+
+  @@index([slug])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String  @id @default(uuid()) @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  imageUrl  String  @map("image_url") @db.VarChar(512)
+  sortOrder Int     @default(0) @map("sort_order")
+
+  @@map("product_images")
+}
+
+model Size {
+  id            String  @id @default(uuid()) @db.Uuid
+  name          String  @unique @db.VarChar(10)
+  chartCategory String  @default("ADULT_UNISEX") @map("chart_category") @db.VarChar(50)
+
+  variants         ProductVariant[]
+  savedRosters     SavedDesignRoster[]
+  cartRosters      CartItemRoster[]
+  orderItemRosters OrderItemRoster[]
+
+  @@map("sizes")
+}
+
+model Material {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  textureUrl  String?  @map("texture_url") @db.VarChar(512)
+
+  variants ProductVariant[]
+
+  @@map("materials")
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid()) @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku           String   @unique @db.VarChar(100)
+  sizeId        String   @map("size_id") @db.Uuid
+  size          Size     @relation(fields: [sizeId], references: [id])
+  materialId    String   @map("material_id") @db.Uuid
+  material      Material @relation(fields: [materialId], references: [id])
+  upcharge      Decimal  @default(0.00) @db.Decimal(10, 2)
+  stockQuantity Int      @default(0) @map("stock_quantity")
+  isActive      Boolean  @default(true) @map("is_active")
+
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+// ============================================================
+// SVG MODULE
+// ============================================================
+
+model SvgFile {
+  id         String          @id @default(uuid()) @db.Uuid
+  templateId String          @unique @map("template_id") @db.Uuid
+  template   ProductTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  svgRaw     String          @map("svg_raw") @db.Text
+  width      Int             @default(800)
+  height     Int             @default(800)
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  views SvgView[]
+
+  @@map("svg_files")
+}
+
+model SvgView {
+  id        String   @id @default(uuid()) @db.Uuid
+  svgFileId String   @map("svg_file_id") @db.Uuid
+  svgFile   SvgFile  @relation(fields: [svgFileId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(50) // FRONT, BACK, LEFT, RIGHT
+  svgRaw    String   @map("svg_raw") @db.Text
+  svgUrl    String?  @map("svg_url") @db.VarChar(512)
+  viewOrder Int      @default(0) @map("view_order")
+
+  layers SvgLayer[]
+
+  @@unique([svgFileId, name])
+  @@map("svg_views")
+}
+
+model SvgLayer {
+  id            String    @id @default(uuid()) @db.Uuid
+  svgViewId     String    @map("svg_view_id") @db.Uuid
+  svgView       SvgView   @relation(fields: [svgViewId], references: [id], onDelete: Cascade)
+  elementId     String    @map("element_id") @db.VarChar(100)
+  layerName     String    @map("layer_name") @db.VarChar(100)
+  layerType     LayerType @map("layer_type")
+  defaultColor  String?   @map("default_color") @db.VarChar(7)
+  parentGroupId String?   @map("parent_group_id") @db.VarChar(100)
+
+  mappings ProductLayerMapping[]
+
+  @@unique([svgViewId, elementId])
+  @@index([svgViewId])
+  @@map("svg_layers")
+}
+
+model ProductLayerMapping {
+  id                String   @id @default(uuid()) @db.Uuid
+  productId         String   @map("product_id") @db.Uuid
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  svgLayerId        String   @map("svg_layer_id") @db.Uuid
+  svgLayer          SvgLayer @relation(fields: [svgLayerId], references: [id], onDelete: Cascade)
+  isEditable        Boolean  @default(true) @map("is_editable")
+  isRequired        Boolean  @default(true) @map("is_required")
+  isLocked          Boolean  @default(false) @map("is_locked")
+  defaultColorValue String?  @map("default_color_value") @db.VarChar(7)
+
+  @@unique([productId, svgLayerId])
+  @@index([productId])
+  @@map("product_layer_mappings")
+}
+
+model Color {
+  id         String  @id @default(uuid()) @db.Uuid
+  name       String  @db.VarChar(50)
+  hexCode    String  @unique @map("hex_code") @db.VarChar(7)
+  colorGroup String? @map("color_group") @db.VarChar(50)
+
+  productColors ProductColor[]
+
+  @@map("colors")
+}
+
+model ProductColor {
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  colorId   String  @map("color_id") @db.Uuid
+  color     Color   @relation(fields: [colorId], references: [id], onDelete: Cascade)
+
+  @@id([productId, colorId])
+  @@map("product_colors")
+}
+
+model Pattern {
+  id             String  @id @default(uuid()) @db.Uuid
+  name           String  @unique @db.VarChar(50)
+  slug           String  @unique @db.VarChar(50)
+  imageUrl       String  @map("image_url") @db.VarChar(512)
+  svgPatternData String? @map("svg_pattern_data") @db.Text
+
+  productPatterns ProductPattern[]
+  configurations  ProductConfiguration[]
+
+  @@map("patterns")
+}
+
+model ProductPattern {
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  patternId String  @map("pattern_id") @db.Uuid
+  pattern   Pattern @relation(fields: [patternId], references: [id], onDelete: Cascade)
+
+  @@id([productId, patternId])
+  @@map("product_patterns")
+}
+
+model Font {
+  id         String  @id @default(uuid()) @db.Uuid
+  name       String  @unique @db.VarChar(50)
+  fontFamily String  @map("font_family") @db.VarChar(100)
+  fontUrl    String? @map("font_url") @db.VarChar(512)
+
+  productFonts   ProductFont[]
+  configurations ProductConfiguration[]
+
+  @@map("fonts")
+}
+
+model ProductFont {
+  productId String  @map("product_id") @db.Uuid
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  fontId    String  @map("font_id") @db.Uuid
+  font      Font    @relation(fields: [fontId], references: [id], onDelete: Cascade)
+
+  @@id([productId, fontId])
+  @@map("product_fonts")
+}
+
+// ============================================================
+// CONFIGURATION & PRICING
+// ============================================================
+
+model ProductConfiguration {
+  id               String   @id @default(uuid()) @db.Uuid
+  productId        String   @unique @map("product_id") @db.Uuid
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  defaultPatternId String?  @map("default_pattern_id") @db.Uuid
+  defaultPattern   Pattern? @relation(fields: [defaultPatternId], references: [id])
+  defaultFontId    String?  @map("default_font_id") @db.Uuid
+  defaultFont      Font?    @relation(fields: [defaultFontId], references: [id])
+  allowLogos       Boolean  @default(true) @map("allow_logos")
+  maxLogos         Int      @default(5) @map("max_logos")
+  textLengthLimit  Int      @default(15) @map("text_length_limit")
+
+  @@map("product_configurations")
+}
+
+model UpchargeRule {
+  id         String  @id @default(uuid()) @db.Uuid
+  productId  String  @map("product_id") @db.Uuid
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  optionType String  @map("option_type") @db.VarChar(50) // TEXT, LOGO, ROSTER
+  amount     Decimal @db.Decimal(10, 2)
+
+  @@unique([productId, optionType])
+  @@map("upcharge_rules")
+}
+
+model QuantityDiscountRule {
+  id                 String  @id @default(uuid()) @db.Uuid
+  productId          String  @map("product_id") @db.Uuid
+  product            Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  minQuantity        Int     @map("min_quantity")
+  discountPercentage Decimal @map("discount_percentage") @db.Decimal(5, 2)
+
+  @@unique([productId, minQuantity])
+  @@map("quantity_discount_rules")
+}
+
+// ============================================================
+// CUSTOM SAVED DESIGNS
+// ============================================================
+
+model SavedDesign {
+  id                String   @id @default(uuid()) @db.Uuid
+  customerId        String   @map("customer_id") @db.Uuid
+  customer          Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId         String   @map("product_id") @db.Uuid
+  product           Product  @relation(fields: [productId], references: [id])
+  name              String   @db.VarChar(100)
+  configurationJson Json     @map("configuration_json")
+  previewImageUrl   String?  @map("preview_image_url") @db.VarChar(512)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  versions   SavedDesignVersion[]
+  rosters    SavedDesignRoster[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([customerId])
+  @@map("saved_designs")
+}
+
+model SavedDesignVersion {
+  id              String      @id @default(uuid()) @db.Uuid
+  savedDesignId   String      @map("saved_design_id") @db.Uuid
+  savedDesign     SavedDesign @relation(fields: [savedDesignId], references: [id], onDelete: Cascade)
+  versionNumber   Int         @map("version_number")
+  configurationJson Json      @map("configuration_json")
+  previewImageUrl String?     @map("preview_image_url") @db.VarChar(512)
+  createdAt       DateTime    @default(now()) @map("created_at")
+
+  @@unique([savedDesignId, versionNumber])
+  @@map("saved_design_versions")
+}
+
+model SavedDesignRoster {
+  id            String      @id @default(uuid()) @db.Uuid
+  savedDesignId String      @map("saved_design_id") @db.Uuid
+  savedDesign   SavedDesign @relation(fields: [savedDesignId], references: [id], onDelete: Cascade)
+  playerName    String      @map("player_name") @db.VarChar(100)
+  playerNumber  String      @map("player_number") @db.VarChar(5)
+  sizeId        String      @map("size_id") @db.Uuid
+  size          Size        @relation(fields: [sizeId], references: [id])
+
+  @@map("saved_design_rosters")
+}
+
+// ============================================================
+// CARTS & BASKET
+// ============================================================
+
+model Cart {
+  id         String    @id @default(uuid()) @db.Uuid
+  customerId String?   @map("customer_id") @db.Uuid
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  sessionId  String    @unique @map("session_id") @db.VarChar(255)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id            String          @id @default(uuid()) @db.Uuid
+  cartId        String          @map("cart_id") @db.Uuid
+  cart          Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId     String          @map("product_id") @db.Uuid
+  product       Product         @relation(fields: [productId], references: [id])
+  variantId     String?         @map("variant_id") @db.Uuid
+  variant       ProductVariant? @relation(fields: [variantId], references: [id])
+  savedDesignId String?         @map("saved_design_id") @db.Uuid
+  savedDesign   SavedDesign?    @relation(fields: [savedDesignId], references: [id])
+  quantity      Int
+  customTextJson Json?          @map("custom_text_json")
+  logoUrl       String?         @map("logo_url") @db.VarChar(512)
+  subtotalPrice Decimal         @map("subtotal_price") @db.Decimal(10, 2)
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  rosters CartItemRoster[]
+
+  @@map("cart_items")
+}
+
+model CartItemRoster {
+  id           String   @id @default(uuid()) @db.Uuid
+  cartItemId   String   @map("cart_item_id") @db.Uuid
+  cartItem     CartItem @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+  playerName   String   @map("player_name") @db.VarChar(100)
+  playerNumber String   @map("player_number") @db.VarChar(5)
+  sizeId       String   @map("size_id") @db.Uuid
+  size         Size     @relation(fields: [sizeId], references: [id])
+
+  @@map("cart_item_rosters")
+}
+
+// ============================================================
+// CHECKOUT & ORDERS
+// ============================================================
+
+model Coupon {
+  id             String       @id @default(uuid()) @db.Uuid
+  code           String       @unique @db.VarChar(50)
+  discountType   DiscountType @map("discount_type")
+  discountValue  Decimal      @map("discount_value") @db.Decimal(10, 2)
+  minOrderValue  Decimal      @default(0.00) @map("min_order_value") @db.Decimal(10, 2)
+  maxDiscount    Decimal?     @map("max_discount") @db.Decimal(10, 2)
+  startDate      DateTime     @map("start_date")
+  expiryDate     DateTime     @map("expiry_date")
+  usageLimit     Int?         @map("usage_limit")
+  usageCount     Int          @default(0) @map("usage_count")
+  isActive       Boolean      @default(true) @map("is_active")
+
+  orders Order[]
+
+  @@map("coupons")
+}
+
+model ShippingAddress {
+  id            String   @id @default(uuid()) @db.Uuid
+  customerId    String   @map("customer_id") @db.Uuid
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  recipientName String   @map("recipient_name") @db.VarChar(150)
+  street        String   @db.VarChar(255)
+  city          String   @db.VarChar(100)
+  state         String   @db.VarChar(100)
+  postalCode    String   @map("postal_code") @db.VarChar(20)
+  country       String   @db.VarChar(100)
+  phone         String   @db.VarChar(20)
+  isDefault     Boolean  @default(false) @map("is_default")
+
+  orders Order[]
+
+  @@map("shipping_addresses")
+}
+
+model Order {
+  id                String        @id @default(uuid()) @db.Uuid
+  orderNumber       String        @unique @map("order_number") @db.VarChar(100)
+  customerId        String        @map("customer_id") @db.Uuid
+  customer          Customer      @relation(fields: [customerId], references: [id])
+  couponId          String?       @map("coupon_id") @db.Uuid
+  coupon            Coupon?       @relation(fields: [couponId], references: [id])
+  shippingAddressId String        @map("shipping_address_id") @db.Uuid
+  shippingAddress   ShippingAddress @relation(fields: [shippingAddressId], references: [id])
+  totalAmount       Decimal       @map("total_amount") @db.Decimal(10, 2)
+  discountAmount    Decimal       @default(0.00) @map("discount_amount") @db.Decimal(10, 2)
+  netAmount         Decimal       @map("net_amount") @db.Decimal(10, 2)
+  orderStatus       OrderStatus   @default(PENDING) @map("order_status")
+  paymentStatus     PaymentStatus @default(UNPAID) @map("payment_status")
+  trackingNumber    String?       @map("tracking_number") @db.VarChar(100)
+  notes             String?       @db.Text
+  signatureAgreed   Boolean       @default(false) @map("signature_agreed")
+  signatureUrl      String?       @map("signature_url") @db.VarChar(512)
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  items    OrderItem[]
+  payments Payment[]
+  invoice  Invoice?
+
+  @@index([customerId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String          @id @default(uuid()) @db.Uuid
+  orderId       String          @map("order_id") @db.Uuid
+  order         Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String          @map("product_id") @db.Uuid
+  product       Product         @relation(fields: [productId], references: [id])
+  variantId     String?         @map("variant_id") @db.Uuid
+  variant       ProductVariant? @relation(fields: [variantId], references: [id])
+  savedDesignId String?         @map("saved_design_id") @db.Uuid
+  savedDesign   SavedDesign?    @relation(fields: [savedDesignId], references: [id])
+  quantity      Int
+  customTextJson Json?          @map("custom_text_json")
+  logoUrl       String?         @map("logo_url") @db.VarChar(512)
+  unitPrice     Decimal         @map("unit_price") @db.Decimal(10, 2)
+  totalPrice    Decimal         @map("total_price") @db.Decimal(10, 2)
+
+  rosters         OrderItemRoster[]
+  productionQueue ProductionQueue?
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model OrderItemRoster {
+  id           String    @id @default(uuid()) @db.Uuid
+  orderItemId  String    @map("order_item_id") @db.Uuid
+  orderItem    OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  playerName   String    @map("player_name") @db.VarChar(100)
+  playerNumber String    @map("player_number") @db.VarChar(5)
+  sizeId       String    @map("size_id") @db.Uuid
+  size         Size      @relation(fields: [sizeId], references: [id])
+
+  @@map("order_item_rosters")
+}
+
+model Payment {
+  id                   String   @id @default(uuid()) @db.Uuid
+  orderId              String   @map("order_id") @db.Uuid
+  order                Order    @relation(fields: [orderId], references: [id])
+  paymentMethod        String   @map("payment_method") @db.VarChar(50)
+  transactionReference String   @unique @map("transaction_reference") @db.VarChar(255)
+  amount               Decimal  @db.Decimal(10, 2)
+  paymentStatus        String   @map("payment_status") @db.VarChar(50)
+  payloadJson          Json?    @map("payload_json")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@map("payments")
+}
+
+model Invoice {
+  id            String    @id @default(uuid()) @db.Uuid
+  orderId       String    @unique @map("order_id") @db.Uuid
+  order         Order     @relation(fields: [orderId], references: [id])
+  invoiceNumber String    @unique @map("invoice_number") @db.VarChar(100)
+  pdfUrl        String    @map("pdf_url") @db.VarChar(512)
+  issueDate     DateTime  @default(now()) @map("issue_date")
+  dueDate       DateTime? @map("due_date")
+
+  @@map("invoices")
+}
+
+model ProductionQueue {
+  id          String    @id @default(uuid()) @db.Uuid
+  orderItemId String    @unique @map("order_item_id") @db.Uuid
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  status      String    @default("QUEUED") @db.VarChar(50) // QUEUED, PRINTING, PACKAGING, COMPLETED
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  exportFiles ProductionExportFile[]
+
+  @@index([status])
+  @@map("production_queues")
+}
+
+model ProductionExportFile {
+  id                String          @id @default(uuid()) @db.Uuid
+  productionQueueId String          @map("production_queue_id") @db.Uuid
+  productionQueue   ProductionQueue @relation(fields: [productionQueueId], references: [id], onDelete: Cascade)
+  fileType          String          @map("file_type") @db.VarChar(10) // SVG, PNG, PDF
+  fileUrl           String          @map("file_url") @db.VarChar(512)
+  generatedAt       DateTime        @default(now()) @map("generated_at")
+
+  @@map("production_export_files")
+}
+
+// ============================================================
+// SYSTEM & ANALYTICS MODULE
+// ============================================================
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String   @db.VarChar(150)
+  message   String   @db.Text
+  type      String   @default("SYSTEM") @db.VarChar(50) // ORDER_STATUS, PROMO, SYSTEM
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+}
+
+model SystemSetting {
+  key         String   @id @db.VarChar(100)
+  value       String   @db.Text
+  description String?  @db.Text
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  @@map("system_settings")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action      String   @db.VarChar(100)
+  entityName  String   @map("entity_name") @db.VarChar(100)
+  entityId    String?  @map("entity_id") @db.Uuid
+  payloadJson Json?    @map("payload_json")
+  ipAddress   String?  @map("ip_address") @db.VarChar(45)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
 }
