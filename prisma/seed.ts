@@ -61,6 +61,56 @@ async function main() {
   }
   console.log('Created product categories.');
 
+  // Create default products
+  const footballCat = await prisma.category.findFirst({ where: { slug: 'football' } });
+  if (footballCat) {
+    const template = await prisma.productTemplate.create({
+      data: {
+        name: 'Classic Football Jersey Template',
+        categoryId: footballCat.id,
+        description: 'Standard athletic layout with chest and back print layers.',
+        basePrice: 150.00,
+      }
+    });
+
+    await prisma.product.create({
+      data: {
+        name: 'Evolution Football Kit',
+        slug: 'soccer-jersey',
+        description: 'Evolution Football Kit with fully customizable colors, numbers, and sleeve/body materials.',
+        basePrice: 199.00,
+        isCustomizable: true,
+        isActive: true,
+        categoryId: footballCat.id,
+        templateId: template.id,
+        images: {
+          create: [
+            { imageUrl: 'https://images.unsplash.com/photo-1580087443864-44bfa286377e?w=500' }
+          ]
+        }
+      }
+    });
+
+    await prisma.product.create({
+      data: {
+        name: 'Standard Team Shorts',
+        slug: 'standard-team-shorts',
+        description: 'Durable, lightweight athletic shorts designed for team matches.',
+        basePrice: 49.00,
+        isCustomizable: false,
+        isActive: true,
+        categoryId: footballCat.id,
+        templateId: template.id,
+        images: {
+          create: [
+            { imageUrl: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=500' }
+          ]
+        }
+      }
+    });
+    console.log('Created default products.');
+  }
+
   // 4. Create Sizes
   const sizes = [
     { name: 'S', chartCategory: 'ADULT_UNISEX' },
