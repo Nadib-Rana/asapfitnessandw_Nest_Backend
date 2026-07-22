@@ -1,11 +1,15 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { SvgUploadService } from '../storage/svg-upload.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly svgUploadService: SvgUploadService,
+  ) {}
 
   async create(dto: CreateProductDto) {
     const existing = await this.prisma.product.findUnique({
@@ -62,6 +66,67 @@ export class ProductsService {
         category: true,
       },
     });
+
+    // --- Link SVG layers from staging upload ---
+    if (dto.uploadId) {
+      const staging = await this.svgUploadService.findById(dto.uploadId);
+      if (staging && !staging.isConsumed) {
+        const layers = staging.layersJson as any[];
+
+        // Ensure SvgFile exists for this template
+        let svgFile = await this.prisma.svgFile.findUnique({
+          where: { templateId: product.templateId },
+        });
+        if (!svgFile) {
+          svgFile = await this.prisma.svgFile.create({
+            data: {
+              templateId: product.templateId,
+              svgRaw: staging.svgRaw,
+              width: staging.width,
+              height: staging.height,
+            },
+          });
+        }
+
+        // Create the SvgView for this product's uploaded file
+        const svgView = await this.prisma.svgView.create({
+          data: {
+            svgFileId: svgFile.id,
+            name: 'FRONT',
+            svgRaw: staging.svgRaw,
+            svgUrl: staging.svgUrl,
+          },
+        });
+
+        // Create SvgLayer + ProductLayerMapping for every detected layer
+        for (const parsedLayer of layers) {
+          const dbLayer = await this.prisma.svgLayer.create({
+            data: {
+              svgViewId: svgView.id,
+              elementId: parsedLayer.elementId,
+              layerName: parsedLayer.layerName,
+              layerType: parsedLayer.layerType,
+              defaultColor: parsedLayer.defaultColor ?? null,
+              parentGroupId: parsedLayer.parentGroupId ?? null,
+            },
+          });
+
+          await this.prisma.productLayerMapping.create({
+            data: {
+              productId: product.id,
+              svgLayerId: dbLayer.id,
+              isEditable: true,
+              isRequired: parsedLayer.layerType !== 'GROUP',
+              isLocked: false,
+              defaultColorValue: parsedLayer.defaultColor ?? null,
+            },
+          });
+        }
+
+        // Mark staging record as consumed so it won't be linked twice
+        await this.svgUploadService.markConsumed(dto.uploadId);
+      }
+    }
 
     return product;
   }

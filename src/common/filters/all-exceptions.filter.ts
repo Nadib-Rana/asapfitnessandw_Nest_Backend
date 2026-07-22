@@ -150,9 +150,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
       ) {
         // 2a. Handle class-validator Validation Errors
         message = "Validation Failed";
-        errors = this.buildValidationErrors(
-          response.message as unknown as SimpleValidationError[],
-        );
+        const firstElement = response.message[0];
+        if (typeof firstElement === "string") {
+          errors = response.message.map((msg: any) => ({
+            code: "VALIDATION_ERROR",
+            message: msg,
+          }));
+        } else {
+          errors = this.buildValidationErrors(
+            response.message as unknown as SimpleValidationError[],
+          );
+        }
       } else if (typeof response === "string") {
         // 2b. Handle simple string HTTP exceptions
         message = response;

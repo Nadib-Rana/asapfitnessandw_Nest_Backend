@@ -16,18 +16,21 @@ const prisma = new PrismaClient({ adapter } as any);
 async function main() {
   console.log('Seeding database...');
 
-  // 1. Clean existing database records safely (order of deletion matters due to FKs)
-  await prisma.verificationToken.deleteMany({});
-  await prisma.admin.deleteMany({});
-  await prisma.customer.deleteMany({});
-  await prisma.user.deleteMany({});
-  await prisma.category.deleteMany({});
-  await prisma.size.deleteMany({});
-  await prisma.color.deleteMany({});
-  await prisma.pattern.deleteMany({});
-  await prisma.font.deleteMany({});
-  await prisma.material.deleteMany({});
-  await prisma.coupon.deleteMany({});
+  // 1. Clean existing database records safely using TRUNCATE CASCADE
+  await prisma.$executeRawUnsafe(`
+    TRUNCATE TABLE 
+      "users", "verification_tokens", "customers", "admins", "categories", 
+      "product_templates", "products", "product_images", "sizes", "materials", 
+      "product_variants", "svg_files", "svg_uploads", "svg_views", "svg_layers", 
+      "product_layer_mappings", "colors", "product_colors", "patterns", "product_patterns", 
+      "fonts", "product_fonts", "product_configurations", "upcharge_rules", 
+      "quantity_discount_rules", "saved_designs", "saved_design_versions", "saved_design_rosters", 
+      "carts", "cart_items", "cart_item_rosters", "coupons", "shipping_addresses", 
+      "orders", "order_items", "order_item_rosters", "payments", "invoices", 
+      "production_queues", "production_export_files", "notifications", "system_settings", 
+      "audit_logs"
+    CASCADE;
+  `);
 
   // 2. Create Default Admin User
   const salt = await bcrypt.genSalt(10);

@@ -1,23 +1,14 @@
-/**
- * src/storage/storage.module.ts
- *
- * Object storage module (MinIO / S3-compatible).
- * Exports StorageService for use in any feature module that needs
- * file upload, download, or presigned URL generation.
- *
- * Usage in a feature module:
- *   imports: [StorageModule]
- *
- * Then inject StorageService as usual.
- */
-
 import { Module } from '@nestjs/common';
 import { StorageService } from './storage.service';
+import { SvgUploadService } from './svg-upload.service';
 import { UploadController } from './upload.controller';
+import { PrismaModule } from '../database/prisma.module';
+import { SvgEngineModule } from '../svg-engine/svg-engine.module';
 
 @Module({
+  imports: [PrismaModule, SvgEngineModule],
   controllers: [UploadController],
-  providers: [StorageService],
-  exports: [StorageService],
+  providers: [StorageService, SvgUploadService],
+  exports: [StorageService, SvgUploadService],
 })
 export class StorageModule {}

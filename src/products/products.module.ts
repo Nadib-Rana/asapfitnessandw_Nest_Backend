@@ -6,9 +6,10 @@ import { ProductsController } from './products.controller';
 import { PrismaModule } from '../database/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { SvgEngineModule } from '../svg-engine/svg-engine.module';
+import { StorageModule } from '../storage/storage.module';
 
 @Module({
-  imports: [PrismaModule, AuthModule, SvgEngineModule],
+  imports: [PrismaModule, AuthModule, SvgEngineModule, StorageModule],
   controllers: [ProductsController],
   providers: [ProductsService, ProductShapesService, ProductConfigService],
   exports: [ProductsService, ProductShapesService, ProductConfigService],

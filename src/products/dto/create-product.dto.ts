@@ -43,4 +43,13 @@ export class CreateProductDto {
   @IsUUID()
   @IsOptional()
   templateId?: string;
+
+  @ApiProperty({
+    example: 'c9d8e7f6-a5b4-3210-d1e2-f3g4h5i6j7k8',
+    description: 'ID returned by POST /upload/uploads/svg. Links parsed SVG layers to this product.',
+    required: false,
+  })
+  @IsUUID()
+  @IsOptional()
+  uploadId?: string;
 }

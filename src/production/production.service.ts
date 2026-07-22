@@ -130,7 +130,7 @@ export class ProductionService {
   private compileSvg(svgRaw: string, colors: Record<string, string>): string {
     let compiled = svgRaw;
     for (const [layerId, color] of Object.entries(colors)) {
-      const tagRegex = new RegExp(`<([a-zA-Z0-9:-]+)[^>]*?id=["']${layerId}["'][^>]*?>`, 'gi');
+      const tagRegex = new RegExp(`<([a-zA-Z0-9:-]+)[^>]*?(?:id|data-name|name)=["']${layerId}["'][^>]*?>`, 'gi');
       compiled = compiled.replace(tagRegex, (match) => {
         if (match.includes('fill=')) {
           return match.replace(/fill=["'][^"']*?["']/gi, `fill="${color}"`);

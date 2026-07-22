@@ -12,6 +12,8 @@ export class ProductConfigService {
       where: isUuid ? { id: idOrSlug } : { slug: idOrSlug },
       include: {
         category: true,
+        template: true,
+        images: true,
       },
     });
     if (!product) {
@@ -19,22 +21,85 @@ export class ProductConfigService {
     }
 
     const mappings = await this.prisma.productLayerMapping.findMany({
-      where: { productId: product.id, isEditable: true },
+      where: { productId: product.id },
       include: {
-        svgLayer: true,
+        svgLayer: {
+          include: { svgView: true },
+        },
       },
     });
 
-    const customizableParts = mappings.map((m) => ({
-      id: m.svgLayer.elementId,
-      label: m.svgLayer.layerName || m.svgLayer.elementId,
-      defaultColor: m.defaultColorValue || m.svgLayer.defaultColor || '#FFFFFF',
-    }));
+    const customizableParts = mappings
+      .filter((m) => m.isEditable)
+      .map((m) => ({
+        id: m.svgLayer.elementId,
+        label: m.svgLayer.layerName || m.svgLayer.elementId,
+        defaultColor: m.defaultColorValue || m.svgLayer.defaultColor || '#FFFFFF',
+        isEditable: m.isEditable,
+        isRequired: m.isRequired,
+        isLocked: m.isLocked,
+      }));
 
     const defaultColors = mappings.reduce((acc, m) => {
-      acc[m.svgLayer.elementId] = m.defaultColorValue || m.svgLayer.defaultColor || '#FFFFFF';
+      if (m.isEditable) {
+        acc[m.svgLayer.elementId] = m.defaultColorValue || m.svgLayer.defaultColor || '#FFFFFF';
+      }
       return acc;
     }, {} as Record<string, string>);
+
+    let views: any[] = [];
+    if (product.templateId) {
+      const svgFile = await this.prisma.svgFile.findUnique({
+        where: { templateId: product.templateId },
+        include: {
+          views: {
+            include: {
+              layers: {
+                include: {
+                  mappings: {
+                    where: { productId: product.id },
+                  },
+                },
+              },
+            },
+            orderBy: { viewOrder: 'asc' },
+          },
+        },
+      });
+
+      if (svgFile && svgFile.views) {
+        views = svgFile.views.map((v) => ({
+          id: v.id,
+          name: v.name,
+          svgUrl: v.svgUrl,
+          svgRaw: v.svgRaw,
+          viewOrder: v.viewOrder,
+          layers: v.layers.map((l) => {
+            const m = l.mappings[0];
+            return {
+              id: l.id,
+              elementId: l.elementId,
+              layerName: l.layerName,
+              layerType: l.layerType,
+              defaultColor: l.defaultColor,
+              parentGroupId: l.parentGroupId,
+              isEditable: m ? m.isEditable : true,
+              isRequired: m ? m.isRequired : true,
+              isLocked: m ? m.isLocked : false,
+              defaultColorValue: m ? m.defaultColorValue : l.defaultColor,
+            };
+          }),
+        }));
+      }
+    }
+
+    let svgUrl: string | null = null;
+    const frontView = views.find((v) => v.name.toUpperCase() === 'FRONT') || views[0];
+    if (frontView) {
+      svgUrl = frontView.svgUrl;
+    } else if (mappings.length > 0 && mappings[0].svgLayer.svgView) {
+      svgUrl = mappings[0].svgLayer.svgView.svgUrl;
+    }
 
     const patterns = await this.prisma.pattern.findMany();
     const fonts = await this.prisma.font.findMany();
@@ -43,8 +108,26 @@ export class ProductConfigService {
       id: product.id,
       slug: product.slug,
       name: product.name,
-      category: product.category.name,
+      description: product.description || '',
+      category: product.category ? product.category.name : '',
+      basePrice: Number(product.basePrice),
+      images: product.images ? product.images.map((img) => img.imageUrl) : [],
+      isCustomizable: product.isCustomizable,
+      isActive: product.isActive,
+      svgUrl,
+      views,
       customizableParts,
+      layerMappings: mappings.map((m) => ({
+        id: m.id,
+        productId: m.productId,
+        svgLayerId: m.svgLayerId,
+        elementId: m.svgLayer.elementId,
+        layerName: m.svgLayer.layerName,
+        isEditable: m.isEditable,
+        isRequired: m.isRequired,
+        isLocked: m.isLocked,
+        defaultColorValue: m.defaultColorValue || m.svgLayer.defaultColor,
+      })),
       patterns: patterns.map((p) => ({
         id: p.slug,
         label: p.name,
@@ -59,6 +142,7 @@ export class ProductConfigService {
       defaultPattern: 'classic',
     };
   }
+
 
   async calculatePricing(idOrSlug: string, dto: CalculatePricingDto) {
     const isUuid = idOrSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
