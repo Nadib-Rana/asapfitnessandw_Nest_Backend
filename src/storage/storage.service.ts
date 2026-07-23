@@ -1,5 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Client as MinioClient } from "minio";
+import * as fs from "fs";
+import * as path from "path";
 
 type ObjectAccessInfo = {
   url: string;
@@ -16,7 +18,7 @@ export class StorageService {
   private readonly publicEndpoint =
     process.env.STORAGE_PUBLIC_URL ?? process.env.MINIO_PUBLIC_URL ?? "";
   private readonly defaultExpirySeconds = Number(
-    process.env.STORAGE_PRESIGNED_EXPIRY_SECONDS ?? 900,
+    process.env.STORAGE_PRESIGNED_EXPIRY_SECONDS ?? 86400, // 24 Hours
   );
   private readonly profilesBucketName =
     process.env.STORAGE_PUBLIC_UPLOAD_BUCKET ?? "profiles";
@@ -40,38 +42,64 @@ export class StorageService {
       return;
     }
 
-    this.minioClient = new MinioClient({
-      endPoint,
-      port,
-      useSSL,
-      accessKey,
-      secretKey,
-    });
+    try {
+      this.minioClient = new MinioClient({
+        endPoint,
+        port,
+        useSSL,
+        accessKey,
+        secretKey,
+      });
+    } catch {
+      this.minioClient = null;
+    }
   }
 
   isConfigured(): boolean {
     return this.minioClient !== null;
   }
 
-  getObjectUrl(key: string, bucket: string): string {
-    if (key.startsWith("http://") || key.startsWith("https://") || key.startsWith("data:")) {
+  cleanKey(key?: string | null): string {
+    if (!key || typeof key !== "string") {
+      return "";
+    }
+    if (key.startsWith("data:") || key.includes("unsplash.com")) {
       return key;
     }
 
-    const cleanKey = key.startsWith("/") ? key : `/${key}`;
-    const endpoint = this.publicEndpoint;
+    let clean = key;
+    if (clean.includes("?")) {
+      clean = clean.split("?")[0];
+    }
+    if (clean.startsWith("http://") || clean.startsWith("https://")) {
+      const match =
+        clean.match(/\/(uploads\/[^\/]+)$/i) ||
+        clean.match(/\/(svg\/[^\/]+)$/i) ||
+        clean.match(/\/(production\/[^\/]+)$/i) ||
+        clean.match(/\/([^\/]+)$/);
+      if (match) {
+        clean = match[1];
+      }
+    }
+    return clean;
+  }
 
-    if (!endpoint) {
-      return cleanKey;
+  getObjectUrl(key?: string | null, bucket = this.defaultBucket): string {
+    if (!key || typeof key !== "string") {
+      return "";
+    }
+    if (key.startsWith("data:") || key.includes("unsplash.com")) {
+      return key;
     }
 
-    const normalizedBase = endpoint.replace(/\/+$/, "");
-    const encodedKey = cleanKey
-      .split("/")
-      .map((segment) => encodeURIComponent(segment))
-      .join("/");
+    const cleanKey = this.cleanKey(key);
+    const cleanFilename = cleanKey
+      .replace(/^uploads\//i, "")
+      .replace(/^svg\//i, "")
+      .replace(/^production\//i, "")
+      .replace(/^\/+/, "");
 
-    return `${normalizedBase}/${bucket}/${encodedKey}`;
+    return `/uploads/${cleanFilename}`;
   }
 
   getDefaultBucket(): string {
@@ -79,144 +107,119 @@ export class StorageService {
   }
 
   isPublicReadBucket(bucket: string): boolean {
-    return bucket === this.profilesBucketName;
+    return true;
   }
 
   async getObjectAccessInfo(
-    key: string,
-    bucket: string,
+    key?: string | null,
+    bucket = this.defaultBucket,
   ): Promise<ObjectAccessInfo> {
-    if (this.isPublicReadBucket(bucket)) {
-      return {
-        url: this.getObjectUrl(key, bucket),
-        restricted: false,
-        accessType: "public",
-      };
-    }
-
     return {
       url: await this.getPresignedObjectUrl(key, bucket),
-      restricted: true,
-      accessType: "private-presigned",
+      restricted: false,
+      accessType: "public",
     };
   }
 
   async getPresignedObjectUrl(
-    key: string,
-    bucket: string,
+    key?: string | null,
+    bucket = this.defaultBucket,
     expirySeconds = this.defaultExpirySeconds,
   ): Promise<string> {
-    if (!this.minioClient) {
-      return this.getObjectUrl(key, bucket);
+    if (!key || typeof key !== "string") {
+      return "";
+    }
+    if (key.startsWith("data:") || key.includes("unsplash.com")) {
+      return key;
     }
 
-    const safeExpiry = Number.isFinite(expirySeconds)
-      ? Math.max(60, Math.floor(expirySeconds))
-      : this.defaultExpirySeconds;
+    const cleanKey = this.cleanKey(key);
 
-    try {
-      await this.ensureBucketExists(bucket);
-      return await this.minioClient.presignedGetObject(bucket, key, safeExpiry);
-    } catch {
-      return this.getObjectUrl(key, bucket);
+    if (this.minioClient) {
+      try {
+        await this.ensureBucketExists(bucket);
+        const objectKey =
+          cleanKey.startsWith("uploads/") ||
+          cleanKey.startsWith("svg/") ||
+          cleanKey.startsWith("production/")
+            ? cleanKey
+            : `uploads/${cleanKey.replace(/^\/+/, "")}`;
+        return await this.minioClient.presignedGetObject(bucket, objectKey, expirySeconds);
+      } catch (err) {
+        return this.getObjectUrl(cleanKey, bucket);
+      }
     }
+
+    return this.getObjectUrl(cleanKey, bucket);
   }
 
   async getPresignedUploadUrl(
     key: string,
-    bucket: string,
+    bucket = this.defaultBucket,
     expirySeconds = this.defaultExpirySeconds,
   ): Promise<string> {
-    if (!this.minioClient) {
-      return this.getObjectUrl(key, bucket);
-    }
-
-    const safeExpiry = Number.isFinite(expirySeconds)
-      ? Math.max(60, Math.floor(expirySeconds))
-      : this.defaultExpirySeconds;
-
-    try {
-      await this.ensureBucketExists(bucket);
-      return await this.minioClient.presignedPutObject(bucket, key, safeExpiry);
-    } catch {
-      return this.getObjectUrl(key, bucket);
-    }
+    return this.getPresignedObjectUrl(key, bucket, expirySeconds);
   }
 
   async uploadObject(
     buffer: Buffer,
-    bucket: string,
+    bucket = this.defaultBucket,
     key: string,
     contentType?: string,
   ): Promise<void> {
+    // 1. Save to local disk ./uploads directory served statically by NestJS port 3000
+    const cleanFilename = key.replace(/^uploads\//i, "").replace(/^\/+/, "");
+    const targetDir = path.join(process.cwd(), "uploads");
+    const targetPath = path.join(targetDir, cleanFilename);
+    const parentDir = path.dirname(targetPath);
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true });
+    }
+    fs.writeFileSync(targetPath, buffer);
+
+    // 2. Also upload object to MinIO bucket
     if (this.minioClient) {
       try {
         await this.ensureBucketExists(bucket);
+        const objectKey = key.startsWith("uploads/") ? key : `uploads/${cleanFilename}`;
         const metaData = contentType ? { "Content-Type": contentType } : undefined;
-        await this.minioClient.putObject(bucket, key, buffer, buffer.length, metaData);
-        return;
+        await this.minioClient.putObject(bucket, objectKey, buffer, buffer.length, metaData);
       } catch (err) {
-        console.warn("MinIO upload failed, falling back to local disk storage:", err);
+        console.warn("MinIO sync notice:", err);
       }
     }
-
-    // Local Disk Fallback
-    const fs = require("fs");
-    const path = require("path");
-    const targetDir = path.join(process.cwd(), "uploads", path.dirname(key.replace(/^uploads\//, "")));
-    if (!fs.existsSync(targetDir)) {
-      fs.mkdirSync(targetDir, { recursive: true });
-    }
-    const targetPath = path.join(process.cwd(), "uploads", key.replace(/^uploads\//, ""));
-    fs.writeFileSync(targetPath, buffer);
   }
 
-  async removeObject(key: string, bucket: string): Promise<boolean> {
-    if (!this.minioClient) {
-      return false;
+  async removeObject(key: string, bucket = this.defaultBucket): Promise<boolean> {
+    const cleanFilename = key.replace(/^uploads\//i, "").replace(/^\/+/, "");
+    const targetPath = path.join(process.cwd(), "uploads", cleanFilename);
+    if (fs.existsSync(targetPath)) {
+      try {
+        fs.unlinkSync(targetPath);
+      } catch {}
     }
 
-    try {
-      await this.minioClient.removeObject(bucket, key);
-      return true;
-    } catch {
-      return false;
+    if (this.minioClient) {
+      try {
+        const objectKey = key.startsWith("uploads/") ? key : `uploads/${cleanFilename}`;
+        await this.minioClient.removeObject(bucket, objectKey);
+        return true;
+      } catch {
+        return false;
+      }
     }
+    return true;
   }
 
   private async ensureBucketExists(bucket: string): Promise<void> {
-    if (!this.minioClient) {
-      return;
+    if (!this.minioClient) return;
+    try {
+      const exists = await this.minioClient.bucketExists(bucket);
+      if (!exists) {
+        await this.minioClient.makeBucket(bucket);
+      }
+    } catch (err) {
+      // Ignored
     }
-
-    const exists = await this.minioClient.bucketExists(bucket);
-
-    if (!exists) {
-      await this.minioClient.makeBucket(bucket);
-    }
-
-    await this.applyPublicReadPolicyIfNeeded(bucket);
-  }
-
-  private async applyPublicReadPolicyIfNeeded(bucket: string): Promise<void> {
-    if (!this.minioClient || !this.isPublicReadBucket(bucket)) {
-      return;
-    }
-
-    const policy = {
-      Version: "2012-10-17",
-      Statement: [
-        {
-          Effect: "Allow",
-          Principal: {
-            AWS: ["*"],
-          },
-          Action: ["s3:GetObject"],
-          Resource: [`arn:aws:s3:::${bucket}/*`],
-        },
-      ],
-    };
-
-    await this.minioClient.setBucketPolicy(bucket, JSON.stringify(policy));
   }
 }

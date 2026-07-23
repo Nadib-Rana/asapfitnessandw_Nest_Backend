@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { CalculatePricingDto } from './dto/calculate-pricing.dto';
 
 @Injectable()
 export class ProductConfigService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
 
   async getConfigSchema(idOrSlug: string) {
     const isUuid = idOrSlug.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
@@ -68,28 +72,30 @@ export class ProductConfigService {
       });
 
       if (svgFile && svgFile.views) {
-        views = svgFile.views.map((v) => ({
-          id: v.id,
-          name: v.name,
-          svgUrl: v.svgUrl,
-          svgRaw: v.svgRaw,
-          viewOrder: v.viewOrder,
-          layers: v.layers.map((l) => {
-            const m = l.mappings[0];
-            return {
-              id: l.id,
-              elementId: l.elementId,
-              layerName: l.layerName,
-              layerType: l.layerType,
-              defaultColor: l.defaultColor,
-              parentGroupId: l.parentGroupId,
-              isEditable: m ? m.isEditable : true,
-              isRequired: m ? m.isRequired : true,
-              isLocked: m ? m.isLocked : false,
-              defaultColorValue: m ? m.defaultColorValue : l.defaultColor,
-            };
-          }),
-        }));
+        views = await Promise.all(
+          svgFile.views.map(async (v) => ({
+            id: v.id,
+            name: v.name,
+            svgUrl: v.svgUrl ? await this.storageService.getPresignedObjectUrl(v.svgUrl) : v.svgUrl,
+            svgRaw: v.svgRaw,
+            viewOrder: v.viewOrder,
+            layers: v.layers.map((l) => {
+              const m = l.mappings[0];
+              return {
+                id: l.id,
+                elementId: l.elementId,
+                layerName: l.layerName,
+                layerType: l.layerType,
+                defaultColor: l.defaultColor,
+                parentGroupId: l.parentGroupId,
+                isEditable: m ? m.isEditable : true,
+                isRequired: m ? m.isRequired : true,
+                isLocked: m ? m.isLocked : false,
+                defaultColorValue: m ? m.defaultColorValue : l.defaultColor,
+              };
+            }),
+          }))
+        );
       }
     }
 
@@ -97,12 +103,16 @@ export class ProductConfigService {
     const frontView = views.find((v) => v.name.toUpperCase() === 'FRONT') || views[0];
     if (frontView) {
       svgUrl = frontView.svgUrl;
-    } else if (mappings.length > 0 && mappings[0].svgLayer.svgView) {
-      svgUrl = mappings[0].svgLayer.svgView.svgUrl;
+    } else if (mappings.length > 0 && mappings[0].svgLayer.svgView?.svgUrl) {
+      svgUrl = await this.storageService.getPresignedObjectUrl(mappings[0].svgLayer.svgView.svgUrl);
     }
 
     const patterns = await this.prisma.pattern.findMany();
     const fonts = await this.prisma.font.findMany();
+    const layerGroups = await this.prisma.layerGroup.findMany({
+      where: { productId: product.id },
+      orderBy: { displayOrder: 'asc' },
+    });
 
     const texts = mappings
       .filter(
@@ -145,6 +155,18 @@ export class ProductConfigService {
         maxSizeBytes: m.maxSizeBytes || 5242880,
       }));
 
+    const resolvedImages = product.images
+      ? await Promise.all(product.images.map((img) => this.storageService.getPresignedObjectUrl(img.imageUrl)))
+      : [];
+
+    const resolvedPatterns = await Promise.all(
+      patterns.map(async (p) => ({
+        id: p.slug,
+        label: p.name,
+        image: await this.storageService.getPresignedObjectUrl(p.imageUrl),
+      }))
+    );
+
     return {
       id: product.id,
       slug: product.slug,
@@ -152,7 +174,7 @@ export class ProductConfigService {
       description: product.description || '',
       category: product.category ? product.category.name : '',
       basePrice: Number(product.basePrice),
-      images: product.images ? product.images.map((img) => img.imageUrl) : [],
+      images: resolvedImages,
       isCustomizable: product.isCustomizable,
       isActive: product.isActive,
       svgUrl,
@@ -172,11 +194,7 @@ export class ProductConfigService {
         isLocked: m.isLocked,
         defaultColorValue: m.defaultColorValue || m.svgLayer.defaultColor,
       })),
-      patterns: patterns.map((p) => ({
-        id: p.slug,
-        label: p.name,
-        image: p.imageUrl,
-      })),
+      patterns: resolvedPatterns,
       fonts: fonts.map((f) => ({
         id: f.fontFamily,
         name: f.name,
