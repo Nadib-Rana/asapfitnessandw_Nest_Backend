@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { SvgUploadService } from '../storage/svg-upload.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 
@@ -9,7 +10,8 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly svgUploadService: SvgUploadService,
-  ) {}
+    private readonly storageService: StorageService,
+  ) { }
 
   private sanitizeString(str?: string | null, maxLen = 100): string | null {
     if (!str) return null;
@@ -73,7 +75,7 @@ export class ProductsService {
         templateId: templateId,
         images: dto.images && dto.images.length > 0 ? {
           create: dto.images.map((url, index) => ({
-            imageUrl: this.sanitizeString(url, 512) || url.slice(0, 512),
+            imageUrl: this.storageService.cleanKey(url) || this.sanitizeString(url, 512) || url.slice(0, 512),
             sortOrder: index,
           })),
         } : undefined,
@@ -84,111 +86,81 @@ export class ProductsService {
       },
     });
 
-    // --- Link SVG layers from staging upload (single uploadId or multi-view views array) ---
-    const viewsToProcess: Array<{ name: string; uploadId?: string; svgUrl?: string }> = [];
     if (dto.views && dto.views.length > 0) {
-      viewsToProcess.push(...dto.views);
-    } else if (dto.uploadId) {
-      viewsToProcess.push({ name: 'FRONT', uploadId: dto.uploadId });
-    }
-
-    for (const viewItem of viewsToProcess) {
-      if (!viewItem.uploadId) continue;
-      const staging = await this.svgUploadService.findById(viewItem.uploadId);
-      if (staging && !staging.isConsumed) {
-        const layers = staging.layersJson as any[];
-
-        // Ensure SvgFile exists for this template
-        let svgFile = await this.prisma.svgFile.findUnique({
-          where: { templateId: product.templateId },
-        });
-        if (!svgFile) {
-          svgFile = await this.prisma.svgFile.create({
-            data: {
-              templateId: product.templateId,
-              svgRaw: staging.svgRaw,
-              width: staging.width,
-              height: staging.height,
-            },
-          });
+      for (const viewItem of dto.views) {
+        if (viewItem.uploadId) {
+          await this.linkStagingUpload(product.id, product.templateId, viewItem.uploadId, viewItem.name || 'FRONT');
         }
-
-        // Delete any existing SvgView with same name to overwrite cleanly
-        const existingView = await this.prisma.svgView.findFirst({
-          where: { svgFileId: svgFile.id, name: viewItem.name.toUpperCase() },
-        });
-        if (existingView) {
-          await this.prisma.svgView.delete({ where: { id: existingView.id } });
-        }
-
-        // Create the SvgView for this view (FRONT, BACK, LEFT, RIGHT)
-        const svgView = await this.prisma.svgView.create({
-          data: {
-            svgFileId: svgFile.id,
-            name: this.sanitizeString(viewItem.name.toUpperCase(), 50) || 'FRONT',
-            svgRaw: staging.svgRaw,
-            svgUrl: this.sanitizeString(staging.svgUrl || viewItem.svgUrl, 512),
-          },
-        });
-
-        // Create SvgLayer + ProductLayerMapping for every detected layer
-        for (const parsedLayer of layers) {
-          const elementId = this.sanitizeString(parsedLayer.elementId, 100) || `layer_${Date.now()}`;
-          const layerName = this.sanitizeString(parsedLayer.layerName, 100) || elementId;
-          const parentGroupId = this.sanitizeString(parsedLayer.parentGroupId, 100);
-          const defaultColor = this.sanitizeColor(parsedLayer.defaultColor);
-
-          const layerData: any = {
-            svgViewId: svgView.id,
-            elementId,
-            layerName,
-            layerType: parsedLayer.layerType,
-            defaultColor,
-            parentGroupId,
-          };
-          if (parsedLayer.textValue) layerData.textValue = parsedLayer.textValue;
-          if (parsedLayer.fontFamily) layerData.fontFamily = this.sanitizeString(parsedLayer.fontFamily, 100);
-          if (parsedLayer.fontSize) layerData.fontSize = this.sanitizeString(parsedLayer.fontSize, 50);
-          if (parsedLayer.fontWeight) layerData.fontWeight = this.sanitizeString(parsedLayer.fontWeight, 50);
-          if (parsedLayer.textAnchor) layerData.textAnchor = this.sanitizeString(parsedLayer.textAnchor, 50);
-          if (parsedLayer.href) layerData.href = this.sanitizeString(parsedLayer.href, 512);
-          if (parsedLayer.width) layerData.width = this.sanitizeString(parsedLayer.width, 50);
-          if (parsedLayer.height) layerData.height = this.sanitizeString(parsedLayer.height, 50);
-
-          let dbLayer: any;
-          try {
-            dbLayer = await this.prisma.svgLayer.create({ data: layerData });
-          } catch (err) {
-            dbLayer = await this.prisma.svgLayer.create({
-              data: {
-                svgViewId: svgView.id,
-                elementId,
-                layerName,
-                layerType: parsedLayer.layerType,
-                defaultColor,
-                parentGroupId,
-              },
-            });
-          }
-
-          await this.prisma.productLayerMapping.create({
-            data: {
-              productId: product.id,
-              svgLayerId: dbLayer.id,
-              isEditable: true,
-              isRequired: parsedLayer.layerType !== 'GROUP',
-              isLocked: false,
-              defaultColorValue: defaultColor,
-            },
-          });
-        }
-
-        // Mark staging record as consumed so it won't be linked twice
-        await this.svgUploadService.markConsumed(viewItem.uploadId);
       }
+    } else if (dto.uploadId) {
+      await this.linkStagingUpload(product.id, product.templateId, dto.uploadId, 'FRONT');
     }
 
-    return product;
+    return this.findOne(product.id);
+  }
+
+  private async linkStagingUpload(productId: string, templateId: string, uploadId: string, viewName = 'FRONT') {
+    const staging = await this.svgUploadService.findById(uploadId);
+    if (!staging) return;
+
+    const layers = (staging.layersJson as any[]) || [];
+
+    let svgFile = await this.prisma.svgFile.findUnique({
+      where: { templateId },
+    });
+    if (!svgFile) {
+      svgFile = await this.prisma.svgFile.create({
+        data: {
+          templateId,
+          svgRaw: staging.svgRaw,
+          width: staging.width,
+          height: staging.height,
+        },
+      });
+    }
+
+    const cleanViewName = (viewName || 'FRONT').toUpperCase();
+    const existingView = await this.prisma.svgView.findFirst({
+      where: { svgFileId: svgFile.id, name: cleanViewName },
+    });
+    if (existingView) {
+      await this.prisma.svgView.delete({ where: { id: existingView.id } });
+    }
+
+    const svgView = await this.prisma.svgView.create({
+      data: {
+        svgFileId: svgFile.id,
+        name: cleanViewName,
+        svgRaw: staging.svgRaw,
+        svgUrl: this.storageService.cleanKey(staging.svgUrl),
+      },
+    });
+
+    for (const parsedLayer of layers) {
+      const dbLayer = await this.prisma.svgLayer.create({
+        data: {
+          svgViewId: svgView.id,
+          elementId: parsedLayer.elementId,
+          layerName: parsedLayer.layerName,
+          layerType: parsedLayer.layerType,
+          defaultColor: parsedLayer.defaultColor ?? null,
+          parentGroupId: parsedLayer.parentGroupId ?? null,
+        },
+      });
+
+      await this.prisma.productLayerMapping.create({
+        data: {
+          productId,
+          svgLayerId: dbLayer.id,
+          isEditable: true,
+          isRequired: parsedLayer.layerType !== 'GROUP',
+          isLocked: false,
+          defaultColorValue: parsedLayer.defaultColor ?? null,
+        },
+      });
+    }
+
+    await this.svgUploadService.markConsumed(uploadId).catch(() => { });
   }
 
   async findAll(filters?: { category?: string; isCustomizable?: boolean }) {
@@ -202,14 +174,47 @@ export class ProductsService {
       where.isCustomizable = filters.isCustomizable;
     }
 
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       where,
-      include: {
-        images: true,
-        category: true,
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        basePrice: true,
+        description: true,
+        isCustomizable: true,
+        isActive: true,
+        createdAt: true,
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        images: {
+          select: {
+            id: true,
+            imageUrl: true,
+            sortOrder: true,
+          },
+          orderBy: { sortOrder: 'asc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return Promise.all(
+      products.map(async (product) => ({
+        ...product,
+        images: await Promise.all(
+          product.images.map(async (img) => ({
+            ...img,
+            imageUrl: await this.storageService.getPresignedObjectUrl(img.imageUrl),
+          }))
+        ),
+      }))
+    );
   }
 
   async findOne(idOrSlug: string) {
@@ -245,11 +250,42 @@ export class ProductsService {
     if (!product) {
       throw new NotFoundException(`Product not found with identifier '${idOrSlug}'`);
     }
-    return product;
+
+    const resolvedImages = await Promise.all(
+      product.images.map(async (img) => ({
+        ...img,
+        imageUrl: await this.storageService.getPresignedObjectUrl(img.imageUrl),
+      }))
+    );
+
+    let resolvedTemplate = product.template;
+    if (resolvedTemplate?.svgFile?.views) {
+      const resolvedViews = await Promise.all(
+        resolvedTemplate.svgFile.views.map(async (view) => ({
+          ...view,
+          svgUrl: view.svgUrl
+            ? await this.storageService.getPresignedObjectUrl(view.svgUrl)
+            : view.svgUrl,
+        }))
+      );
+      resolvedTemplate = {
+        ...resolvedTemplate,
+        svgFile: {
+          ...resolvedTemplate.svgFile,
+          views: resolvedViews,
+        },
+      };
+    }
+
+    return {
+      ...product,
+      images: resolvedImages,
+      template: resolvedTemplate,
+    };
   }
 
   async update(id: string, dto: UpdateProductDto) {
-    await this.findOne(id);
+    const existing = await this.findOne(id);
     const data: any = {
       name: dto.name,
       slug: dto.slug,
@@ -259,68 +295,64 @@ export class ProductsService {
       isActive: dto.isActive,
       templateId: dto.templateId,
     };
-
-    if (dto.category) {
-      const category = await this.prisma.category.findFirst({
-        where: {
-          OR: [
-            { name: { equals: dto.category, mode: 'insensitive' } },
-            { slug: { equals: dto.category.toLowerCase(), mode: 'insensitive' } },
-          ],
-        },
-      });
-      if (!category) {
-        throw new NotFoundException(`Category '${dto.category}' not found`);
-      }
-      data.categoryId = category.id;
-    }
-
-    if (dto.images) {
-      await this.prisma.productImage.deleteMany({ where: { productId: id } });
-      data.images = {
-        create: dto.images.map((url, index) => ({
-          imageUrl: url,
-          sortOrder: index,
-        })),
-      };
-    }
-
-    return this.prisma.product.update({
+    const updated = await this.prisma.product.update({
       where: { id },
       data,
-      include: {
-        images: true,
-        category: true,
-      },
+      include: { images: true, category: true },
     });
+
+    if (dto.views && dto.views.length > 0) {
+      for (const viewItem of dto.views) {
+        if (viewItem.uploadId) {
+          await this.linkStagingUpload(updated.id, updated.templateId, viewItem.uploadId, viewItem.name || 'FRONT');
+        }
+      }
+    } else if (dto.uploadId) {
+      await this.linkStagingUpload(updated.id, updated.templateId, dto.uploadId, 'FRONT');
+    }
+
+    return updated;
   }
 
   async remove(id: string) {
     await this.findOne(id);
     await this.prisma.product.delete({ where: { id } });
-    return { success: true, message: 'Product successfully deleted' };
+    return { success: true, message: 'Product deleted successfully' };
   }
 
-  async updateLayerMapping(
-    productId: string,
-    mappingId: string,
-    data: any,
-  ) {
-    try {
-      return await this.prisma.productLayerMapping.update({
-        where: { id: mappingId },
-        data,
-      });
-    } catch (err) {
-      const baseData: any = {};
-      if (data.isEditable !== undefined) baseData.isEditable = data.isEditable;
-      if (data.isRequired !== undefined) baseData.isRequired = data.isRequired;
-      if (data.isLocked !== undefined) baseData.isLocked = data.isLocked;
-      if (data.defaultColorValue !== undefined) baseData.defaultColorValue = data.defaultColorValue;
-      return await this.prisma.productLayerMapping.update({
-        where: { id: mappingId },
-        data: baseData,
-      });
+  async updateLayerMapping(productId: string, mappingId: string, dto: any) {
+    const mapping = await this.prisma.productLayerMapping.findFirst({
+      where: {
+        id: mappingId,
+        productId,
+      },
+    });
+
+    if (!mapping) {
+      throw new NotFoundException(
+        `Layer mapping '${mappingId}' not found for product '${productId}'`,
+      );
     }
+
+    const data: any = {};
+    if (dto.isEditable !== undefined) data.isEditable = dto.isEditable;
+    if (dto.isRequired !== undefined) data.isRequired = dto.isRequired;
+    if (dto.isLocked !== undefined) data.isLocked = dto.isLocked;
+    if (dto.defaultColorValue !== undefined) data.defaultColorValue = dto.defaultColorValue;
+    if (dto.placeholder !== undefined) data.placeholder = dto.placeholder;
+    if (dto.maxChars !== undefined) data.maxChars = dto.maxChars;
+    if (dto.minChars !== undefined) data.minChars = dto.minChars;
+    if (dto.allowedFontsJson !== undefined) data.allowedFontsJson = dto.allowedFontsJson;
+    if (dto.allowedFormatsJson !== undefined) data.allowedFormatsJson = dto.allowedFormatsJson;
+    if (dto.maxSizeBytes !== undefined) data.maxSizeBytes = dto.maxSizeBytes;
+
+    return this.prisma.productLayerMapping.update({
+      where: { id: mappingId },
+      data,
+      include: {
+        svgLayer: true,
+      },
+    });
   }
 }
+
