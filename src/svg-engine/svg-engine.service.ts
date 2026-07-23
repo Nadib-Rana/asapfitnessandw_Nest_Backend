@@ -414,4 +414,82 @@ export class SvgEngineService {
     traverse(layers, false);
     return flat;
   }
+
+  private serializeSvgTree(nodes: SvgNode[]): string {
+    let xml = '';
+    for (const node of nodes) {
+      if (node.name === 'root') {
+        xml += this.serializeSvgTree(node.children);
+        continue;
+      }
+      const attrs = Object.entries(node.attributes)
+        .map(([k, v]) => `${k}="${(v || '').replace(/"/g, '&quot;')}"`)
+        .join(' ');
+      const attrString = attrs ? ` ${attrs}` : '';
+
+      if (node.children.length === 0 && !node.text) {
+        xml += `<${node.name}${attrString}/>`;
+      } else {
+        xml += `<${node.name}${attrString}>`;
+        if (node.text) {
+          xml += node.text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        if (node.children.length > 0) {
+          xml += this.serializeSvgTree(node.children);
+        }
+        xml += `</${node.name}>`;
+      }
+    }
+    return xml;
+  }
+
+  renderExportSvg(
+    rawSvg: string,
+    customization: {
+      colors?: Record<string, string>;
+      texts?: Record<string, string>;
+      images?: Record<string, string>;
+    },
+  ): string {
+    const sanitized = this.sanitizeSvg(rawSvg);
+    const rootNodes = this.buildSvgTree(sanitized);
+
+    const applyCustomizations = (node: SvgNode) => {
+      const id = node.attributes.id || node.attributes['data-name'] || node.attributes.name;
+
+      if (id) {
+        if (customization.colors && customization.colors[id]) {
+          const color = customization.colors[id];
+          if (node.attributes.stroke && node.attributes.stroke !== 'none') {
+            node.attributes.stroke = color;
+          } else {
+            node.attributes.fill = color;
+          }
+        }
+
+        if (customization.texts && customization.texts[id]) {
+          node.text = customization.texts[id];
+        }
+
+        if (customization.images && customization.images[id]) {
+          const imgUrl = customization.images[id];
+          if (node.attributes['xlink:href']) {
+            node.attributes['xlink:href'] = imgUrl;
+          }
+          node.attributes.href = imgUrl;
+        }
+      }
+
+      for (const child of node.children) {
+        applyCustomizations(child);
+      }
+    };
+
+    for (const node of rootNodes) {
+      applyCustomizations(node);
+    }
+
+    return `<?xml version="1.0" encoding="UTF-8"?>\n` + this.serializeSvgTree(rootNodes);
+  }
 }
+
