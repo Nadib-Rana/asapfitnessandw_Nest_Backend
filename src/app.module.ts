@@ -34,17 +34,17 @@ import { ProductionModule } from './production/production.module';
 const mailModules =
   process.env.MAIL_HOST
     ? [
-        (() => {
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { MailerModule } = require('@nestjs-modules/mailer');
-          // eslint-disable-next-line @typescript-eslint/no-require-imports
-          const { getMailConfig } = require('./mail/mail.config');
-          return MailerModule.forRootAsync({
-            useFactory: getMailConfig,
-            inject: [ConfigService],
-          });
-        })(),
-      ]
+      (() => {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { MailerModule } = require('@nestjs-modules/mailer');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { getMailConfig } = require('./mail/mail.config');
+        return MailerModule.forRootAsync({
+          useFactory: getMailConfig,
+          inject: [ConfigService],
+        });
+      })(),
+    ]
     : [];
 
 @Module({

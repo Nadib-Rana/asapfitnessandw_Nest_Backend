@@ -74,4 +74,23 @@ export class OrdersController {
   ) {
     return this.ordersService.updateOrderStatus(id, body.status as OrderStatus);
   }
+
+  @Get('admin/production/queue')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: '[ADMIN] Get production queue items with exported vector files' })
+  @ApiResponse({ status: 200, description: 'Returns production queue list.' })
+  getProductionQueue() {
+    return this.ordersService.getProductionQueue();
+  }
+
+  @Post('admin/items/:orderItemId/export')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: '[ADMIN] Generate / re-export production vector SVG for order item' })
+  @ApiResponse({ status: 200, description: 'Production vector SVG files generated.' })
+  generateProductionExport(@Param('orderItemId') orderItemId: string) {
+    return this.ordersService.generateProductionExport(orderItemId);
+  }
 }
+
