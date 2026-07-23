@@ -33,6 +33,11 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // Serve uploaded files statically
+  const express = require('express');
+  const path = require('path');
+  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
   // --- Global Prefix (optional) ---
   // app.setGlobalPrefix('api/v1');
 

@@ -2,17 +2,20 @@ import { IsString, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class ProfileSetupDto {
-  @ApiProperty({ example: '2005-01-10' })
+  @ApiProperty({ example: '2005-01-10', required: false })
   @IsString()
-  dob: string;
+  @IsOptional()
+  dob?: string;
 
-  @ApiProperty({ example: 'Male' })
+  @ApiProperty({ example: 'Male', required: false })
   @IsString()
-  gender: string;
+  @IsOptional()
+  gender?: string;
 
-  @ApiProperty({ example: '221B Baker Street, London' })
+  @ApiProperty({ example: '221B Baker Street, London', required: false })
   @IsString()
-  address: string;
+  @IsOptional()
+  address?: string;
 
   @ApiProperty({ example: 'http://example.com/avatar.jpg', required: false })
   @IsString()

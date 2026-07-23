@@ -8,10 +8,13 @@ import { AuthModule } from '../auth/auth.module';
 import { SvgEngineModule } from '../svg-engine/svg-engine.module';
 import { StorageModule } from '../storage/storage.module';
 
+import { LayerGroupsController } from './layer-groups.controller';
+import { LayerGroupsService } from './layer-groups.service';
+
 @Module({
   imports: [PrismaModule, AuthModule, SvgEngineModule, StorageModule],
-  controllers: [ProductsController],
-  providers: [ProductsService, ProductShapesService, ProductConfigService],
-  exports: [ProductsService, ProductShapesService, ProductConfigService],
+  controllers: [ProductsController, LayerGroupsController],
+  providers: [ProductsService, ProductShapesService, ProductConfigService, LayerGroupsService],
+  exports: [ProductsService, ProductShapesService, ProductConfigService, LayerGroupsService],
 })
 export class ProductsModule {}

@@ -202,14 +202,14 @@ export class AllExceptionsFilter implements ExceptionFilter {
         errors = [
           {
             code: `DB_${exception.code}`,
-            message: prismaError.message, // Use the friendly message
+            message: exception.message || prismaError.message,
             field: exception.meta?.target?.join("."),
           },
         ];
       } else {
         // Unhandled Prisma error
         httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
-        message = "An unhandled database error occurred.";
+        message = exception.message || "An unhandled database error occurred.";
         errors = [
           { code: `DB_UNKNOWN_${exception.code}`, message: exception.message },
         ];

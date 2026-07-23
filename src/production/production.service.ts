@@ -96,9 +96,10 @@ export class ProductionService {
     const bucket = this.storageService.getDefaultBucket();
     const exportFiles: any[] = [];
 
-    // Compile each SVG view by injecting the colors
+    // Compile each SVG view by injecting colors and text
+    const playerText = config.playerText || config.text;
     for (const view of svgFile.views) {
-      const compiledSvg = this.compileSvg(view.svgRaw, colors);
+      const compiledSvg = this.compileSvg(view.svgRaw, colors, playerText);
       const key = `production/exports/${queueId}-${view.name}.svg`;
 
       await this.storageService.uploadObject(
@@ -127,8 +128,13 @@ export class ProductionService {
     };
   }
 
-  private compileSvg(svgRaw: string, colors: Record<string, string>): string {
+  private compileSvg(
+    svgRaw: string,
+    colors: Record<string, string>,
+    playerText?: any,
+  ): string {
     let compiled = svgRaw;
+
     for (const [layerId, color] of Object.entries(colors)) {
       const tagRegex = new RegExp(`<([a-zA-Z0-9:-]+)[^>]*?(?:id|data-name|name)=["']${layerId}["'][^>]*?>`, 'gi');
       compiled = compiled.replace(tagRegex, (match) => {
@@ -142,6 +148,22 @@ export class ProductionService {
         }
       });
     }
+
+    if (playerText) {
+      if (playerText.name) {
+        compiled = compiled.replace(
+          /(<text[^>]*?(?:id=["'](?:text_name|player_name|name)["'])[^>]*?>)([\s\S]*?)(<\/text>)/gi,
+          `$1${playerText.name}$3`,
+        );
+      }
+      if (playerText.number) {
+        compiled = compiled.replace(
+          /(<text[^>]*?(?:id=["'](?:text_number|player_number|number)["'])[^>]*?>)([\s\S]*?)(<\/text>)/gi,
+          `$1${playerText.number}$3`,
+        );
+      }
+    }
+
     return compiled;
   }
 }

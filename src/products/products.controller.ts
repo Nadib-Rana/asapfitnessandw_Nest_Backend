@@ -121,4 +121,18 @@ export class ProductsController {
   async getShapes(@Param('productId') productId: string) {
     return this.productShapesService.getShapes(productId);
   }
+
+  @Put('admin/products/:productId/mappings/:mappingId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '[ADMIN] Update layer mapping settings (text/image/color rules)' })
+  @ApiResponse({ status: 200, description: 'Layer mapping configuration updated.' })
+  async updateMapping(
+    @Param('productId') productId: string,
+    @Param('mappingId') mappingId: string,
+    @Body() body: any,
+  ) {
+    return this.productsService.updateLayerMapping(productId, mappingId, body);
+  }
 }

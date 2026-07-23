@@ -104,6 +104,47 @@ export class ProductConfigService {
     const patterns = await this.prisma.pattern.findMany();
     const fonts = await this.prisma.font.findMany();
 
+    const texts = mappings
+      .filter(
+        (m) =>
+          m.svgLayer.layerType === 'TEXT' ||
+          m.svgLayer.elementId.toLowerCase().includes('text') ||
+          m.svgLayer.elementId.toLowerCase().includes('name') ||
+          m.svgLayer.elementId.toLowerCase().includes('number') ||
+          m.svgLayer.elementId.toLowerCase().includes('player'),
+      )
+      .map((m: any) => ({
+        id: m.svgLayer.elementId,
+        layerName: m.svgLayer.layerName || m.svgLayer.elementId,
+        textValue: (m.svgLayer as any).textValue || m.placeholder || 'ENTER TEXT',
+        fontFamily: (m.svgLayer as any).fontFamily || 'Montserrat',
+        fontSize: (m.svgLayer as any).fontSize || '24px',
+        fontWeight: (m.svgLayer as any).fontWeight || 'bold',
+        textAnchor: (m.svgLayer as any).textAnchor || 'middle',
+        placeholder: m.placeholder || 'ENTER TEXT',
+        maxChars: m.maxChars || 20,
+        minChars: m.minChars || 1,
+        isEditable: m.isEditable ?? true,
+        isLocked: m.isLocked ?? false,
+        isRequired: m.isRequired ?? false,
+        allowedFonts: m.allowedFontsJson || [],
+      }));
+
+    const imagePlaceholders = mappings
+      .filter((m) => m.svgLayer.layerType === 'IMAGE')
+      .map((m: any) => ({
+        id: m.svgLayer.elementId,
+        layerName: m.svgLayer.layerName || m.svgLayer.elementId,
+        href: (m.svgLayer as any).href || '',
+        width: (m.svgLayer as any).width || '100',
+        height: (m.svgLayer as any).height || '100',
+        isEditable: m.isEditable,
+        isLocked: m.isLocked,
+        isRequired: m.isRequired,
+        allowedFormats: m.allowedFormatsJson || ['PNG', 'SVG', 'JPG', 'WEBP'],
+        maxSizeBytes: m.maxSizeBytes || 5242880,
+      }));
+
     return {
       id: product.id,
       slug: product.slug,
@@ -117,12 +158,15 @@ export class ProductConfigService {
       svgUrl,
       views,
       customizableParts,
+      texts,
+      imagePlaceholders,
       layerMappings: mappings.map((m) => ({
         id: m.id,
         productId: m.productId,
         svgLayerId: m.svgLayerId,
         elementId: m.svgLayer.elementId,
         layerName: m.svgLayer.layerName,
+        layerType: m.svgLayer.layerType,
         isEditable: m.isEditable,
         isRequired: m.isRequired,
         isLocked: m.isLocked,
@@ -136,6 +180,28 @@ export class ProductConfigService {
       fonts: fonts.map((f) => ({
         id: f.fontFamily,
         name: f.name,
+      })),
+      layerGroups: (await this.prisma.layerGroup.findMany({
+        where: { productId: product.id },
+        include: {
+          groupLayers: {
+            include: { svgLayer: true },
+            orderBy: { displayOrder: 'asc' },
+          },
+        },
+        orderBy: { displayOrder: 'asc' },
+      })).map((g) => ({
+        id: g.id,
+        name: g.name,
+        isLocked: g.isLocked,
+        isVisible: g.isVisible,
+        displayOrder: g.displayOrder,
+        layers: g.groupLayers.map((gl) => ({
+          id: gl.svgLayer.elementId,
+          svgLayerId: gl.svgLayerId,
+          displayLabel: gl.displayLabel || gl.svgLayer.layerName || gl.svgLayer.elementId,
+          displayOrder: gl.displayOrder,
+        })),
       })),
       supportedTabs: ['colors', 'designs', 'elements', 'players', 'text'],
       defaultColors,

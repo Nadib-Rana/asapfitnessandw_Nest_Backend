@@ -28,6 +28,7 @@ describe('ProductShapesService', () => {
     productLayerMapping: {
       create: jest.fn(),
     },
+    $transaction: jest.fn((cb) => cb(mockPrisma)),
   };
 
   const mockSvgEngine = {

@@ -169,6 +169,26 @@ export class OrdersService {
     });
   }
 
+  async getAdminCustomers() {
+    const customers = await this.prisma.customer.findMany({
+      include: {
+        user: true,
+        orders: true,
+        shippingAddresses: true,
+      },
+    });
+    return customers.map((c: any) => ({
+      id: c.id,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      email: c.user?.email || '',
+      phone: c.phone || '',
+      totalOrders: c.orders ? c.orders.length : 0,
+      totalSpent: c.orders ? c.orders.reduce((sum: number, o: any) => sum + Number(o.totalAmount || 0), 0) : 0,
+      createdAt: c.user?.createdAt || new Date(),
+    }));
+  }
+
   async updateOrderStatus(orderId: string, status: OrderStatus) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order) {

@@ -50,4 +50,25 @@ export class CheckoutController {
   validateCoupon(@Body() body: { code: string; subtotal: number }) {
     return this.checkoutService.validateCoupon(body.code, body.subtotal);
   }
+
+  @Get('admin/coupons')
+  @ApiOperation({ summary: '[ADMIN] List all coupons' })
+  @ApiResponse({ status: 200, description: 'Returns all system coupons.' })
+  getCoupons() {
+    return this.checkoutService.getCoupons();
+  }
+
+  @Post('admin/coupons')
+  @ApiOperation({ summary: '[ADMIN] Create a new coupon' })
+  @ApiResponse({ status: 201, description: 'Coupon created successfully.' })
+  createCoupon(@Body() body: any) {
+    return this.checkoutService.createCoupon(body);
+  }
+
+  @Delete('admin/coupons/:id')
+  @ApiOperation({ summary: '[ADMIN] Delete a coupon' })
+  @ApiResponse({ status: 200, description: 'Coupon deleted successfully.' })
+  deleteCoupon(@Param('id') id: string) {
+    return this.checkoutService.deleteCoupon(id);
+  }
 }

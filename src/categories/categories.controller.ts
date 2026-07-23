@@ -44,4 +44,22 @@ export class CategoriesController {
   remove(@Param('id') id: string) {
     return this.categoriesService.remove(id);
   }
+
+  @Get('/admin/cms')
+  @ApiOperation({ summary: '[ADMIN] List CMS posts and pages' })
+  getCms() {
+    return this.categoriesService.getCms();
+  }
+
+  @Post('/admin/cms/posts')
+  @ApiOperation({ summary: '[ADMIN] Create CMS post' })
+  createCmsPost(@Body() body: any) {
+    return this.categoriesService.createCmsPost(body);
+  }
+
+  @Post('/admin/cms/pages')
+  @ApiOperation({ summary: '[ADMIN] Create CMS page' })
+  createCmsPage(@Body() body: any) {
+    return this.categoriesService.createCmsPage(body);
+  }
 }

@@ -52,4 +52,18 @@ export class CreateProductDto {
   @IsUUID()
   @IsOptional()
   uploadId?: string;
+
+  @ApiProperty({
+    example: [
+      { name: 'FRONT', svgUrl: 'http://example.com/front.svg' },
+      { name: 'BACK', svgUrl: 'http://example.com/back.svg' },
+      { name: 'LEFT', svgUrl: 'http://example.com/left.svg' },
+      { name: 'RIGHT', svgUrl: 'http://example.com/right.svg' }
+    ],
+    description: 'Array of multi-view SVG uploads (FRONT, BACK, LEFT, RIGHT) to link to this product in DB.',
+    required: false,
+  })
+  @IsArray()
+  @IsOptional()
+  views?: Array<{ name: string; uploadId?: string; svgUrl?: string }>;
 }

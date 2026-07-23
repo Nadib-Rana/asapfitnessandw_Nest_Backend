@@ -54,6 +54,15 @@ export class OrdersController {
     return this.ordersService.getAdminOrders();
   }
 
+  @Get('admin/customers')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @ApiOperation({ summary: '[ADMIN] List all customers' })
+  @ApiResponse({ status: 200, description: 'Returns customer list with purchase statistics.' })
+  getAdminCustomers() {
+    return this.ordersService.getAdminCustomers();
+  }
+
   @Put('admin/orders/:id/status')
   @UseGuards(RolesGuard)
   @Roles('ADMIN')

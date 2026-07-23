@@ -56,11 +56,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Retrieve active authenticated user details' })
   @ApiResponse({ status: 200, description: 'Returns current user session details.' })
   getMe(@Req() req: any) {
-    return {
-      id: req.user.userId,
-      email: req.user.email,
-      role: req.user.role,
-      fullName: req.user.fullName,
-    };
+    const userId = req.user.userId || req.user.sub || req.user.id;
+    return this.authService.getMe(userId);
   }
 }

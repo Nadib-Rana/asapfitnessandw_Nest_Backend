@@ -172,6 +172,7 @@ model Product {
   savedDesigns  SavedDesign[]
   cartItems     CartItem[]
   orderItems    OrderItem[]
+  layerGroups   LayerGroup[]
 
   @@index([slug])
   @@map("products")
@@ -242,6 +243,7 @@ model SvgFile {
   svgRaw     String          @map("svg_raw") @db.Text
   width      Int             @default(800)
   height     Int             @default(800)
+  version    Int             @default(1)
   createdAt  DateTime        @default(now()) @map("created_at")
 
   views SvgView[]
@@ -291,7 +293,18 @@ model SvgLayer {
   defaultColor  String?   @map("default_color") @db.VarChar(7)
   parentGroupId String?   @map("parent_group_id") @db.VarChar(100)
 
+  // Extended Text & Image properties
+  textValue     String?   @map("text_value") @db.Text
+  fontFamily    String?   @map("font_family") @db.VarChar(100)
+  fontSize      String?   @map("font_size") @db.VarChar(50)
+  fontWeight    String?   @map("font_weight") @db.VarChar(50)
+  textAnchor    String?   @map("text_anchor") @db.VarChar(50)
+  href          String?   @db.VarChar(512)
+  width         String?   @db.VarChar(50)
+  height        String?   @db.VarChar(50)
+
   mappings ProductLayerMapping[]
+  groupLayers LayerGroupLayer[]
 
   @@unique([svgViewId, elementId])
   @@index([svgViewId])
@@ -309,9 +322,48 @@ model ProductLayerMapping {
   isLocked          Boolean  @default(false) @map("is_locked")
   defaultColorValue String?  @map("default_color_value") @db.VarChar(7)
 
+  // Extended Text & Image rules
+  placeholder        String?  @db.VarChar(255)
+  maxChars           Int?     @map("max_chars")
+  minChars           Int?     @map("min_chars")
+  allowedFontsJson   Json?    @map("allowed_fonts_json")
+  allowedFormatsJson Json?    @map("allowed_formats_json")
+  maxSizeBytes       Int?     @map("max_size_bytes")
+
   @@unique([productId, svgLayerId])
   @@index([productId])
   @@map("product_layer_mappings")
+}
+
+model LayerGroup {
+  id           String            @id @default(uuid()) @db.Uuid
+  productId    String            @map("product_id") @db.Uuid
+  product      Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name         String            @db.VarChar(100)
+  displayOrder Int               @default(0) @map("display_order")
+  isLocked     Boolean           @default(false) @map("is_locked")
+  isVisible    Boolean           @default(true) @map("is_visible")
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+
+  groupLayers  LayerGroupLayer[]
+
+  @@index([productId])
+  @@map("layer_groups")
+}
+
+model LayerGroupLayer {
+  id           String     @id @default(uuid()) @db.Uuid
+  groupId      String     @map("group_id") @db.Uuid
+  group        LayerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  svgLayerId   String     @map("svg_layer_id") @db.Uuid
+  svgLayer     SvgLayer   @relation(fields: [svgLayerId], references: [id], onDelete: Cascade)
+  displayLabel String?    @map("display_label") @db.VarChar(100)
+  displayOrder Int        @default(0) @map("display_order")
+
+  @@unique([groupId, svgLayerId])
+  @@index([groupId])
+  @@map("layer_group_layers")
 }
 
 model Color {

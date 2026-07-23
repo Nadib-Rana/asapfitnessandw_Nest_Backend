@@ -137,4 +137,35 @@ export class CheckoutService {
     await this.prisma.shippingAddress.delete({ where: { id: addressId } });
     return { success: true, message: 'Shipping address deleted successfully' };
   }
+
+  async getCoupons() {
+    return this.prisma.coupon.findMany({
+      orderBy: { startDate: 'desc' },
+    });
+  }
+
+  async createCoupon(data: any) {
+    const existing = await this.prisma.coupon.findUnique({
+      where: { code: data.code.toUpperCase() },
+    });
+    if (existing) {
+      throw new BadRequestException(`Coupon code '${data.code}' already exists`);
+    }
+
+    return this.prisma.coupon.create({
+      data: {
+        code: data.code.toUpperCase(),
+        discountType: data.discountType ? data.discountType.toUpperCase() : 'PERCENTAGE',
+        discountValue: data.discountValue || 10,
+        startDate: new Date(),
+        expiryDate: data.expiryDate ? new Date(data.expiryDate) : new Date('2029-12-31'),
+        isActive: data.isActive ?? true,
+      },
+    });
+  }
+
+  async deleteCoupon(id: string) {
+    await this.prisma.coupon.delete({ where: { id } });
+    return { success: true, message: 'Coupon deleted successfully' };
+  }
 }

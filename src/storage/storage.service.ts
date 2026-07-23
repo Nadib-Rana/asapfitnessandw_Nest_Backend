@@ -54,14 +54,19 @@ export class StorageService {
   }
 
   getObjectUrl(key: string, bucket: string): string {
-    const endpoint = this.publicEndpoint;
-
-    if (!endpoint) {
+    if (key.startsWith("http://") || key.startsWith("https://") || key.startsWith("data:")) {
       return key;
     }
 
+    const cleanKey = key.startsWith("/") ? key : `/${key}`;
+    const endpoint = this.publicEndpoint;
+
+    if (!endpoint) {
+      return cleanKey;
+    }
+
     const normalizedBase = endpoint.replace(/\/+$/, "");
-    const encodedKey = key
+    const encodedKey = cleanKey
       .split("/")
       .map((segment) => encodeURIComponent(segment))
       .join("/");
@@ -144,21 +149,26 @@ export class StorageService {
     key: string,
     contentType?: string,
   ): Promise<void> {
-    if (!this.minioClient) {
-      throw new Error("Storage service is not configured");
+    if (this.minioClient) {
+      try {
+        await this.ensureBucketExists(bucket);
+        const metaData = contentType ? { "Content-Type": contentType } : undefined;
+        await this.minioClient.putObject(bucket, key, buffer, buffer.length, metaData);
+        return;
+      } catch (err) {
+        console.warn("MinIO upload failed, falling back to local disk storage:", err);
+      }
     }
 
-    await this.ensureBucketExists(bucket);
-
-    const metaData = contentType ? { "Content-Type": contentType } : undefined;
-
-    await this.minioClient.putObject(
-      bucket,
-      key,
-      buffer,
-      buffer.length,
-      metaData,
-    );
+    // Local Disk Fallback
+    const fs = require("fs");
+    const path = require("path");
+    const targetDir = path.join(process.cwd(), "uploads", path.dirname(key.replace(/^uploads\//, "")));
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    const targetPath = path.join(process.cwd(), "uploads", key.replace(/^uploads\//, ""));
+    fs.writeFileSync(targetPath, buffer);
   }
 
   async removeObject(key: string, bucket: string): Promise<boolean> {

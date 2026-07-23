@@ -99,6 +99,7 @@ export class AuthService {
     };
     const accessToken = this.jwtService.sign(payload);
 
+    const avatarUrl = tokenRecord.user.customer?.profileImageUrl || null;
     return {
       accessToken,
       user: {
@@ -106,6 +107,8 @@ export class AuthService {
         email: tokenRecord.user.email,
         role: tokenRecord.user.role,
         fullName: `${tokenRecord.user.customer?.firstName} ${tokenRecord.user.customer?.lastName}`,
+        profileImageUrl: avatarUrl,
+        avatarUrl,
       },
     };
   }
@@ -118,21 +121,24 @@ export class AuthService {
       throw new NotFoundException('Customer profile not found');
     }
 
-    const dobDate = dto.dob ? new Date(dto.dob) : null;
+    const dobDate = dto.dob ? new Date(dto.dob) : undefined;
 
-    await this.prisma.customer.update({
+    const updatedCustomer = await this.prisma.customer.update({
       where: { userId },
       data: {
-        dob: dobDate,
-        gender: dto.gender,
-        address: dto.address,
-        profileImageUrl: dto.profileImageUrl,
+        ...(dobDate !== undefined ? { dob: dobDate } : {}),
+        ...(dto.gender !== undefined ? { gender: dto.gender } : {}),
+        ...(dto.address !== undefined ? { address: dto.address } : {}),
+        ...(dto.profileImageUrl !== undefined ? { profileImageUrl: dto.profileImageUrl } : {}),
       },
     });
 
     return {
       success: true,
       message: 'Profile setup completed successfully',
+      customer: updatedCustomer,
+      profileImageUrl: updatedCustomer.profileImageUrl,
+      avatarUrl: updatedCustomer.profileImageUrl,
     };
   }
 
@@ -163,6 +169,8 @@ export class AuthService {
         ? user.admin?.department || 'Administrator'
         : `${user.customer?.firstName} ${user.customer?.lastName}`;
 
+    const avatarUrl = user.customer?.profileImageUrl || null;
+
     const payload = {
       sub: user.id,
       role: user.role,
@@ -178,7 +186,65 @@ export class AuthService {
         email: user.email,
         role: user.role,
         fullName,
+        profileImageUrl: avatarUrl,
+        avatarUrl,
       },
+    };
+  }
+
+  async getMe(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        customer: true,
+        admin: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User profile not found');
+    }
+
+    const firstName = user.customer?.firstName || '';
+    const lastName = user.customer?.lastName || '';
+    const fullName = user.customer
+      ? `${firstName} ${lastName}`.trim()
+      : user.admin
+      ? user.admin.department || 'Administrator'
+      : user.email.split('@')[0];
+
+    const avatarUrl = user.customer?.profileImageUrl || null;
+
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      firstName,
+      lastName,
+      fullName,
+      profileImageUrl: avatarUrl,
+      avatarUrl,
+      customer: user.customer
+        ? {
+            id: user.customer.id,
+            firstName: user.customer.firstName,
+            lastName: user.customer.lastName,
+            phoneNumber: user.customer.phone,
+            phone: user.customer.phone,
+            companyName: user.customer.companyName,
+            address: user.customer.address,
+            dob: user.customer.dob,
+            gender: user.customer.gender,
+            profileImageUrl: avatarUrl,
+            avatarUrl,
+            profile: {
+              dob: user.customer.dob,
+              gender: user.customer.gender,
+              address: user.customer.address,
+              avatarUrl,
+            },
+          }
+        : null,
     };
   }
 }

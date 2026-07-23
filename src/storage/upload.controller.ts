@@ -36,35 +36,34 @@ export class UploadController {
   ) {}
 
   /**
-   * POST /upload/admin/upload
-   * General-purpose file upload (images, etc.).
-   * Returns a presigned URL for immediate browser display.
+   * POST /upload/admin/upload & POST /upload/file
+   * General-purpose file upload (user profile pictures, artwork, product images).
+   * Returns a presigned or public URL for immediate browser display.
    */
-  @Post('admin/upload')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('ADMIN')
+  @Post(['admin/upload', 'file'])
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @UseInterceptors(FileInterceptor('file'))
   @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: '[ADMIN] Upload a file (PNG, JPG, etc.) to storage' })
+  @ApiOperation({ summary: 'Upload a file (PNG, JPG, WEBP, etc.) to storage' })
   @ApiBody({
     schema: {
       type: 'object',
       properties: { file: { type: 'string', format: 'binary' } },
     },
   })
-  @ApiResponse({ status: 201, description: 'File uploaded, returns presigned URL.' })
+  @ApiResponse({ status: 201, description: 'File uploaded, returns object URL.' })
   async uploadFile(@UploadedFile() file: any) {
     if (!file) throw new BadRequestException('No file uploaded');
 
     const bucket = this.storageService.getDefaultBucket();
     const uniqueId = Math.floor(100000 + Math.random() * 900000);
-    const sanitizedFilename = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
+    const sanitizedFilename = file.originalname ? file.originalname.replace(/[^a-zA-Z0-9.]/g, '_') : 'image.png';
     const key = `uploads/${uniqueId}-${sanitizedFilename}`;
 
     await this.storageService.uploadObject(file.buffer, bucket, key, file.mimetype);
 
-    // Return a presigned URL so the browser can display the image immediately
+    // Return a presigned or static URL so the browser can display the image immediately
     const url = await this.storageService.getPresignedObjectUrl(key, bucket);
     return { url };
   }
