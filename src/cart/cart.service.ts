@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 
 @Injectable()
 export class CartService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
 
   private async getCustomerOrThrow(userId: string) {
     const customer = await this.prisma.customer.findUnique({
@@ -36,7 +40,7 @@ export class CartService {
     const customer = await this.getCustomerOrThrow(userId);
     const cart = await this.findOrCreateCart(customer.id);
 
-    return this.prisma.cart.findUnique({
+    const fullCart = await this.prisma.cart.findUnique({
       where: { id: cart.id },
       include: {
         items: {
@@ -56,6 +60,26 @@ export class CartService {
         },
       },
     });
+
+    if (!fullCart) return null;
+
+    const items = await Promise.all(
+      fullCart.items.map(async (item) => {
+        let product = item.product;
+        if (product && product.images) {
+          const resolvedImages = await Promise.all(
+            product.images.map(async (img) => ({
+              ...img,
+              imageUrl: await this.storageService.getPresignedObjectUrl(img.imageUrl),
+            }))
+          );
+          product = { ...product, images: resolvedImages };
+        }
+        return { ...item, product };
+      })
+    );
+
+    return { ...fullCart, items };
   }
 
   async addItem(userId: string, dto: AddCartItemDto) {
