@@ -12,7 +12,7 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
   async register(dto: RegisterDto) {
     const existingUser = await this.prisma.user.findUnique({
@@ -210,8 +210,8 @@ export class AuthService {
     const fullName = user.customer
       ? `${firstName} ${lastName}`.trim()
       : user.admin
-      ? user.admin.department || 'Administrator'
-      : user.email.split('@')[0];
+        ? user.admin.department || 'Administrator'
+        : user.email.split('@')[0];
 
     const avatarUrl = user.customer?.profileImageUrl || null;
 
@@ -226,24 +226,24 @@ export class AuthService {
       avatarUrl,
       customer: user.customer
         ? {
-            id: user.customer.id,
-            firstName: user.customer.firstName,
-            lastName: user.customer.lastName,
-            phoneNumber: user.customer.phone,
-            phone: user.customer.phone,
-            companyName: user.customer.companyName,
-            address: user.customer.address,
+          id: user.customer.id,
+          firstName: user.customer.firstName,
+          lastName: user.customer.lastName,
+          phoneNumber: user.customer.phone,
+          phone: user.customer.phone,
+          companyName: user.customer.companyName,
+          address: user.customer.address,
+          dob: user.customer.dob,
+          gender: user.customer.gender,
+          profileImageUrl: avatarUrl,
+          avatarUrl,
+          profile: {
             dob: user.customer.dob,
             gender: user.customer.gender,
-            profileImageUrl: avatarUrl,
+            address: user.customer.address,
             avatarUrl,
-            profile: {
-              dob: user.customer.dob,
-              gender: user.customer.gender,
-              address: user.customer.address,
-              avatarUrl,
-            },
-          }
+          },
+        }
         : null,
     };
   }
