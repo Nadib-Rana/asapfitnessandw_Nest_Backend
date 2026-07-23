@@ -33,10 +33,16 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  // Serve uploaded files statically
+  // Serve uploaded files statically with 7-day browser caching
   const express = require('express');
   const path = require('path');
-  app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+  app.use(
+    '/uploads',
+    express.static(path.join(process.cwd(), 'uploads'), {
+      maxAge: '7d',
+      etag: true,
+    }),
+  );
 
   // --- Global Prefix (optional) ---
   // app.setGlobalPrefix('api/v1');

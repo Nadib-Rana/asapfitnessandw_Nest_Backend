@@ -1,11 +1,17 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { SvgEngineService } from '../svg-engine/svg-engine.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus, PaymentStatus } from '@prisma/client';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly svgEngineService: SvgEngineService,
+    private readonly storageService: StorageService,
+  ) {}
 
   async createOrder(userId: string, dto: CreateOrderDto) {
     const customer = await this.prisma.customer.findUnique({
@@ -156,17 +162,68 @@ export class OrdersService {
     if (!order) {
       throw new NotFoundException(`Order with ID '${orderId}' not found`);
     }
-    return order;
+
+    const items = await Promise.all(
+      order.items.map(async (item) => {
+        let product = item.product;
+        if (product && product.images) {
+          const resolvedImages = await Promise.all(
+            product.images.map(async (img) => ({
+              ...img,
+              imageUrl: await this.storageService.getPresignedObjectUrl(img.imageUrl),
+            }))
+          );
+          product = { ...product, images: resolvedImages };
+        }
+        return { ...item, product };
+      })
+    );
+
+    return { ...order, items };
   }
 
   async getAdminOrders() {
-    return this.prisma.order.findMany({
+    const orders = await this.prisma.order.findMany({
       include: {
         customer: true,
         shippingAddress: true,
+        items: {
+          include: {
+            product: {
+              include: { images: true },
+            },
+            savedDesign: true,
+            productionQueue: {
+              include: {
+                exportFiles: true,
+              },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    return Promise.all(
+      orders.map(async (order) => ({
+        ...order,
+        items: await Promise.all(
+          order.items.map(async (item) => {
+            let product = item.product;
+            if (product && (product as any).images) {
+              const resolvedImages = await Promise.all(
+                (product as any).images.map(async (img: any) => ({
+                  ...img,
+                  imageUrl: await this.storageService.getPresignedObjectUrl(img.imageUrl),
+                }))
+              );
+              product = { ...product, images: resolvedImages };
+            }
+            return { ...item, product };
+          })
+        ),
+      }))
+    );
   }
 
   async getAdminCustomers() {
@@ -201,6 +258,101 @@ export class OrdersService {
     });
   }
 
+  async generateProductionExport(orderItemId: string) {
+    const item = await this.prisma.orderItem.findUnique({
+      where: { id: orderItemId },
+      include: {
+        product: true,
+        savedDesign: true,
+        rosters: { include: { size: true } },
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(`Order item with ID '${orderItemId}' not found`);
+    }
+
+    const svgFile = await this.prisma.svgFile.findUnique({
+      where: { templateId: item.product.templateId },
+      include: { views: { orderBy: { viewOrder: 'asc' } } },
+    });
+
+    if (!svgFile || !svgFile.views || svgFile.views.length === 0) {
+      throw new NotFoundException(`No SVG template views found for product '${item.product.name}'`);
+    }
+
+    let prodQueue = await this.prisma.productionQueue.findUnique({
+      where: { orderItemId: item.id },
+    });
+    if (!prodQueue) {
+      prodQueue = await this.prisma.productionQueue.create({
+        data: {
+          orderItemId: item.id,
+          status: 'QUEUED',
+        },
+      });
+    }
+
+    const config: any = item.savedDesign?.configurationJson || {};
+    const colors = config.colors || config.defaultColors || {};
+    const texts: Record<string, string> = {};
+    if (config.playerText) {
+      texts['text_name'] = config.playerText.name || 'PLAYER';
+      texts['text_number'] = config.playerText.number || '00';
+    }
+    const images = config.images || {};
+
+    const exportFiles: any[] = [];
+    const defaultBucket = this.storageService.getDefaultBucket();
+
+    for (const view of svgFile.views) {
+      const exportSvgXml = this.svgEngineService.renderExportSvg(view.svgRaw, {
+        colors,
+        texts,
+        images,
+      });
+
+      const buffer = Buffer.from(exportSvgXml, 'utf8');
+      const uniqueId = Math.floor(100000 + Math.random() * 900000);
+      const key = `production/${item.id}_${view.name.toLowerCase()}_${uniqueId}.svg`;
+
+      await this.storageService.uploadObject(buffer, defaultBucket, key, 'image/svg+xml');
+      const fileUrl = await this.storageService.getPresignedObjectUrl(key, defaultBucket);
+
+      const exportRecord = await this.prisma.productionExportFile.create({
+        data: {
+          productionQueueId: prodQueue.id,
+          fileType: 'SVG',
+          fileUrl,
+        },
+      });
+      exportFiles.push(exportRecord);
+    }
+
+    return {
+      productionQueueId: prodQueue.id,
+      orderItemId: item.id,
+      exportFiles,
+    };
+  }
+
+  async getProductionQueue() {
+    return this.prisma.productionQueue.findMany({
+      include: {
+        orderItem: {
+          include: {
+            product: true,
+            order: { include: { customer: true } },
+            savedDesign: true,
+            rosters: true,
+          },
+        },
+        exportFiles: true,
+      },
+      orderBy: { startedAt: 'desc' },
+    });
+  }
+
   async payOrder(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
@@ -214,19 +366,22 @@ export class OrdersService {
       where: { id: orderId },
       data: {
         paymentStatus: PaymentStatus.PAID,
-        orderStatus: OrderStatus.PROCESSING, // automatically transitions to production processing!
+        orderStatus: OrderStatus.PROCESSING,
       },
     });
 
     for (const item of order.items) {
-      await this.prisma.productionQueue.create({
-        data: {
-          orderItemId: item.id,
-          status: 'QUEUED',
-        },
-      }).catch(() => {}); // catch in case already exists
+      await this.prisma.productionQueue.upsert({
+        where: { orderItemId: item.id },
+        update: { status: 'QUEUED' },
+        create: { orderItemId: item.id, status: 'QUEUED' },
+      });
+      await this.generateProductionExport(item.id).catch((err) => {
+        console.warn(`Production export warning for item ${item.id}:`, err?.message);
+      });
     }
 
     return updated;
   }
 }
+
