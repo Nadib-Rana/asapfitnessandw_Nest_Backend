@@ -127,7 +127,7 @@ export class UploadController {
     const svgUrl = await this.storageService.getPresignedObjectUrl(key, bucket);
 
     // 4. Parse SVG — backend is the single source of truth
-    const { width, height, layers } = this.svgEngineService.parseSvg(svgRaw);
+    const { width, height, layers, hierarchy } = this.svgEngineService.parseSvg(svgRaw);
 
     // 5. Persist temporary staging record
     const staging = await this.svgUploadService.createStagingUpload({
@@ -143,10 +143,12 @@ export class UploadController {
       uploadId: staging.id,
       svgUrl: staging.svgUrl,
       metadata: { width, height, filename: file.originalname },
+      hierarchy: hierarchy || [],
       layers: layers.map((l: any) => ({
         elementId: l.elementId,
         layerName: l.layerName,
         layerType: l.layerType,
+        category: l.category ?? 'DECORATION',
         defaultColor: l.defaultColor ?? null,
         parentGroupId: l.parentGroupId ?? null,
         fill: l.fill ?? null,
@@ -155,6 +157,12 @@ export class UploadController {
         opacity: l.opacity ?? null,
         transform: l.transform ?? null,
         visibility: l.visibility ?? null,
+        textValue: l.textValue ?? null,
+        fontFamily: l.fontFamily ?? null,
+        fontSize: l.fontSize ?? null,
+        href: l.href ?? null,
+        width: l.width ?? null,
+        height: l.height ?? null,
       })),
       debugBackendDetected: layers.length,
     };
